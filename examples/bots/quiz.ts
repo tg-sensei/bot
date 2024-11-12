@@ -1,4 +1,4 @@
-import { MessageAction as LibMessageAction, Markdown, MemoryJsonUserDataProvider, TelegramBot } from '../../lib';
+import { MessageResponse as LibMessageResponse, Markdown, MemoryJsonUserDataProvider, TelegramBot } from '../../lib';
 import { CreateBot } from '../runExample';
 
 const commands = {
@@ -24,7 +24,7 @@ type UserData =
       age: number;
     };
 
-const MessageAction = LibMessageAction<BotCommand, never, UserData>;
+const MessageResponse = LibMessageResponse<BotCommand, never, UserData>;
 
 const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
   const userDataProvider = new MemoryJsonUserDataProvider<BotCommand, never, UserData>({
@@ -47,7 +47,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
       state: 'simple:get-name',
     });
 
-    return new MessageAction({
+    return new MessageResponse({
       content: "What's your name?",
     });
   });
@@ -56,7 +56,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     const { text } = message;
 
     if (!text) {
-      return new MessageAction({
+      return new MessageResponse({
         content: 'Please send a text message',
       });
     }
@@ -66,7 +66,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
       name: text,
     });
 
-    return new MessageAction({
+    return new MessageResponse({
       content: "What's your age?",
     });
   });
@@ -75,7 +75,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     const { text } = message;
 
     if (!text) {
-      return new MessageAction({
+      return new MessageResponse({
         content: 'Please send a text message',
       });
     }
@@ -83,13 +83,13 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     const age = Number(text);
 
     if (Number.isNaN(age)) {
-      return new MessageAction({
+      return new MessageResponse({
         content: 'Please enter a valid number',
       });
     }
 
     if (age <= 0) {
-      return new MessageAction({
+      return new MessageResponse({
         content: 'Age must be a positive number',
       });
     }
@@ -100,7 +100,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
       age,
     });
 
-    return new MessageAction({
+    return new MessageResponse({
       content: 'Where do you live?',
     });
   });
@@ -109,7 +109,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     const { text } = message;
 
     if (!text) {
-      return new MessageAction({
+      return new MessageResponse({
         content: 'Please send a text message',
       });
     }
@@ -118,7 +118,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
       state: 'none',
     });
 
-    return new MessageAction({
+    return new MessageResponse({
       content: Markdown.create`${Markdown.bold('Your name:')} ${user.data.name}
 ${Markdown.bold('Your age:')} ${user.data.age}
 ${Markdown.bold('Your location:')} ${text}`,

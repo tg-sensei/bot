@@ -3,9 +3,9 @@ import { z } from 'zod';
 import {
   InlineKeyboardButtons,
   JsonCallbackDataProvider,
-  MessageAction as LibMessageAction,
+  MessageResponse as LibMessageResponse,
   Markdown,
-  NotificationAction,
+  NotificationResponse,
   ReplyKeyboard,
   TelegramBot,
 } from '../../lib';
@@ -32,7 +32,7 @@ const callbackData = z.union([
 
 type CallbackData = z.TypeOf<typeof callbackData>;
 
-const MessageAction = LibMessageAction<BotCommand, CallbackData>;
+const MessageResponse = LibMessageResponse<BotCommand, CallbackData>;
 
 const inlineKeyboard: InlineKeyboardButtons<CallbackData> = [
   [
@@ -121,21 +121,21 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
   });
 
   bot.handleCommand('/example_inline', async () => {
-    return new MessageAction({
+    return new MessageResponse({
       content: 'Inline keyboard example',
       replyMarkup: await callbackDataProvider.buildInlineKeyboard(inlineKeyboard),
     });
   });
 
   bot.handleCommand('/example_reply', async () => {
-    return new MessageAction({
+    return new MessageResponse({
       content: 'Reply keyboard example',
       replyMarkup: replyKeyboard,
     });
   });
 
   bot.handleUsersShared(async ({ usersShared: { users } }) => {
-    return new MessageAction({
+    return new MessageResponse({
       content: Markdown.create`You've shared: ${Markdown.join(
         users.map(({ user_id, first_name }) => Markdown.telegramUser(user_id, first_name ?? `user${user_id}`)),
         ', ',
@@ -144,7 +144,7 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
   });
 
   bot.handleChatShared(async ({ chatShared: { chat_id, title } }) => {
-    return new MessageAction({
+    return new MessageResponse({
       content: `You've shared chat (#${chat_id}) with title ${JSON.stringify(title)}`,
     });
   });
@@ -153,25 +153,25 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
     const { contact, location, poll, text } = message;
 
     if (contact) {
-      return new MessageAction({
+      return new MessageResponse({
         content: `You've shared a contact: ${contact.first_name} (${contact.phone_number})`,
       });
     }
 
     if (poll) {
-      return new MessageAction({
+      return new MessageResponse({
         content: `You've shared a poll: ${poll.question}`,
       });
     }
 
     if (location) {
-      return new MessageAction({
+      return new MessageResponse({
         content: `You've shared a location: ${location.latitude}, ${location.longitude}`,
       });
     }
 
     if (text === closeKeyboardText) {
-      return new MessageAction({
+      return new MessageResponse({
         content: 'Keyboard closed',
         replyMarkup: {
           remove_keyboard: true,
@@ -181,20 +181,20 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
   });
 
   callbackDataProvider.handle('notificationResponse', async () => {
-    return new NotificationAction({
+    return new NotificationResponse({
       text: 'Notification response',
     });
   });
 
   callbackDataProvider.handle('alertResponse', async () => {
-    return new NotificationAction({
+    return new NotificationResponse({
       text: 'Alert response',
       showAlert: true,
     });
   });
 
   callbackDataProvider.handle('editTextResponse', async () => {
-    return new MessageAction({
+    return new MessageResponse({
       content: 'Edited text response',
       replyMarkup: await callbackDataProvider.buildInlineKeyboard(inlineKeyboard),
     });

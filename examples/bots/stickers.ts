@@ -4,11 +4,11 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import {
-  ActionsStreamAction,
-  MessageAction as LibMessageAction,
+  MessageResponse as LibMessageResponse,
   MemoryJsonStorageCallbackDataProvider,
+  ResponsesStreamResponse,
   TelegramBot,
-  WaitingAction,
+  WaitingResponse,
 } from '../../lib';
 import { CreateBot } from '../runExample';
 
@@ -25,7 +25,7 @@ const callbackData = z.object({
 
 type CallbackData = z.TypeOf<typeof callbackData>;
 
-const MessageAction = LibMessageAction<BotCommand, CallbackData>;
+const MessageResponse = LibMessageResponse<BotCommand, CallbackData>;
 
 const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
   const callbackDataProvider = new MemoryJsonStorageCallbackDataProvider<BotCommand, CallbackData>();
@@ -42,9 +42,9 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
       return;
     }
 
-    return new WaitingAction({
+    return new WaitingResponse({
       type: 'choose_sticker',
-      getAction: async () => {
+      getResponse: async () => {
         const name = `test_${Math.random().toString().slice(2)}_by_${(await bot.api.getMe()).username}`;
 
         await bot.api.createNewStickerSet({
@@ -70,8 +70,8 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
           ],
         });
 
-        return new ActionsStreamAction(async function* () {
-          yield new MessageAction({
+        return new ResponsesStreamResponse(async function* () {
+          yield new MessageResponse({
             content: 'Set created',
             replyMarkup: await callbackDataProvider.buildInlineKeyboard([
               [
@@ -94,7 +94,7 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
           const sticker = stickerSet.stickers.at(0)?.file_id;
 
           if (sticker) {
-            yield new MessageAction({
+            yield new MessageResponse({
               mode: 'separate',
               content: {
                 type: 'sticker',
@@ -112,7 +112,7 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
       name,
     });
 
-    return new MessageAction({
+    return new MessageResponse({
       content: 'Set deleted',
     });
   });

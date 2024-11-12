@@ -4,7 +4,7 @@ import { BaseCommand, TelegramBot } from '../TelegramBot';
 import { TelegramBotError, TelegramBotErrorCode } from '../TelegramBotError';
 import { MessageContent, MessageEffect, PreparedMessageContent, ReplyMarkup } from '../message';
 import { getReplyMarkup, prepareMessageContent } from '../utils';
-import { Action, ActionOnCallbackQueryContext, ActionOnMessageContext } from './Action';
+import { Response, ResponseOnCallbackQueryContext, ResponseOnMessageContext } from './Response';
 
 type SendOptions<CommandType extends BaseCommand, CallbackData, UserData> = {
   bot: TelegramBot<CommandType, CallbackData, UserData>;
@@ -18,11 +18,11 @@ type SendOptions<CommandType extends BaseCommand, CallbackData, UserData> = {
   messageEffect?: MessageEffect;
 };
 
-export type MessageActionMode = 'linked' | 'separate';
+export type MessageResponseMode = 'linked' | 'separate';
 
-export type MessageActionOptions = {
+export type MessageResponseOptions = {
   content: MessageContent;
-  mode?: MessageActionMode;
+  mode?: MessageResponseMode;
   businessConnectionId?: string;
   disableNotification?: boolean;
   replyMarkup?: ReplyMarkup;
@@ -32,12 +32,12 @@ export type MessageActionOptions = {
 };
 
 /* eslint-disable brace-style */
-export class MessageAction<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
-  implements Action<CommandType, CallbackData, UserData>
+export class MessageResponse<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
+  implements Response<CommandType, CallbackData, UserData>
 {
   /* eslint-enable brace-style */
   readonly content: PreparedMessageContent;
-  readonly mode: MessageActionMode;
+  readonly mode: MessageResponseMode;
   readonly businessConnectionId?: string;
   readonly disableNotification?: boolean;
   readonly replyMarkup?: ReplyMarkup;
@@ -45,7 +45,7 @@ export class MessageAction<CommandType extends BaseCommand = never, CallbackData
   readonly allowSendingWithoutReply?: boolean;
   readonly messageEffect?: MessageEffect;
 
-  constructor(options: MessageActionOptions) {
+  constructor(options: MessageResponseOptions) {
     this.content = prepareMessageContent(options.content);
     this.mode = options.mode ?? 'linked';
     this.businessConnectionId = options?.businessConnectionId;
@@ -62,7 +62,7 @@ export class MessageAction<CommandType extends BaseCommand = never, CallbackData
     return preparedReplyMarkup && 'inline_keyboard' in preparedReplyMarkup ? preparedReplyMarkup : undefined;
   }
 
-  async onCallbackQuery(ctx: ActionOnCallbackQueryContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async onCallbackQuery(ctx: ResponseOnCallbackQueryContext<CommandType, CallbackData, UserData>): Promise<void> {
     const { id: queryId, message } = ctx.query;
 
     if (!message) {
@@ -111,7 +111,7 @@ export class MessageAction<CommandType extends BaseCommand = never, CallbackData
     }
   }
 
-  async onMessage(ctx: ActionOnMessageContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async onMessage(ctx: ResponseOnMessageContext<CommandType, CallbackData, UserData>): Promise<void> {
     await this.send({
       bot: ctx.bot,
       chatId: ctx.message.chat.id,

@@ -1,8 +1,8 @@
 import { BaseCommand } from '../TelegramBot';
 import { TelegramBotError, TelegramBotErrorCode } from '../TelegramBotError';
-import { Action, ActionOnCallbackQueryContext } from './Action';
+import { Response, ResponseOnCallbackQueryContext } from './Response';
 
-export interface NotificationActionOptions {
+export interface NotificationResponseOptions {
   text: string;
   showAlert?: boolean;
   url?: string;
@@ -10,8 +10,8 @@ export interface NotificationActionOptions {
 }
 
 /* eslint-disable brace-style */
-export class NotificationAction<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
-  implements Action<CommandType, CallbackData, UserData>
+export class NotificationResponse<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
+  implements Response<CommandType, CallbackData, UserData>
 {
   /* eslint-enable brace-style */
   private readonly text: string;
@@ -19,14 +19,14 @@ export class NotificationAction<CommandType extends BaseCommand = never, Callbac
   private readonly url?: string;
   private readonly cacheTime?: number;
 
-  constructor(options: NotificationActionOptions) {
+  constructor(options: NotificationResponseOptions) {
     this.text = options.text;
     this.showAlert = options.showAlert;
     this.url = options.url;
     this.cacheTime = options.cacheTime;
   }
 
-  async onCallbackQuery(ctx: ActionOnCallbackQueryContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async onCallbackQuery(ctx: ResponseOnCallbackQueryContext<CommandType, CallbackData, UserData>): Promise<void> {
     if (this.text.length > 200) {
       throw new TelegramBotError(TelegramBotErrorCode.LongNotificationText, {
         message: `Notification text is too long: ${JSON.stringify(this.text)}`,
