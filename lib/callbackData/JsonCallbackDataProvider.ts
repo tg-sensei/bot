@@ -20,14 +20,11 @@ export type JsonCallbackDataProviderOptions<
   parseJson?: (json: string) => CallbackData;
 };
 
-/* eslint-disable brace-style */
 export class JsonCallbackDataProvider<
   in out CommandType extends BaseCommand = never,
   in out CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType> = never,
   in out UserData = never,
-> implements CallbackDataProvider<CommandType, CallbackData, UserData>
-{
-  /* eslint-enable brace-style */
+> extends CallbackDataProvider<CommandType, CallbackData, UserData> {
   private readonly _handlers: {
     [Type in CallbackData['type']]?: CallbackQueryHandler<
       CommandType,
@@ -39,6 +36,8 @@ export class JsonCallbackDataProvider<
   private readonly _parseJson: (json: string) => CallbackData;
 
   constructor(options: JsonCallbackDataProviderOptions<CallbackData['type'], CallbackData> = {}) {
+    super();
+
     this._parseJson = options.parseJson ?? JSON.parse;
   }
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import {
-  InlineKeyboard,
+  InlineKeyboardButtons,
   JsonCallbackDataProvider,
   MessageAction as LibMessageAction,
   Markdown,
@@ -34,7 +34,7 @@ type CallbackData = z.TypeOf<typeof callbackData>;
 
 const MessageAction = LibMessageAction<BotCommand, CallbackData>;
 
-const inlineKeyboard: InlineKeyboard<CallbackData> = [
+const inlineKeyboard: InlineKeyboardButtons<CallbackData> = [
   [
     {
       type: 'callbackData',
@@ -122,42 +122,30 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
 
   bot.handleCommand('/example_inline', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Inline keyboard example',
-      },
-      replyMarkup: inlineKeyboard,
+      content: 'Inline keyboard example',
+      replyMarkup: await callbackDataProvider.buildInlineKeyboard(inlineKeyboard),
     });
   });
 
   bot.handleCommand('/example_reply', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Reply keyboard example',
-      },
+      content: 'Reply keyboard example',
       replyMarkup: replyKeyboard,
     });
   });
 
   bot.handleUsersShared(async ({ usersShared: { users } }) => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: Markdown.create`You've shared: ${Markdown.join(
-          users.map(({ user_id, first_name }) => Markdown.telegramUser(user_id, first_name ?? `user${user_id}`)),
-          ', ',
-        )}`,
-      },
+      content: Markdown.create`You've shared: ${Markdown.join(
+        users.map(({ user_id, first_name }) => Markdown.telegramUser(user_id, first_name ?? `user${user_id}`)),
+        ', ',
+      )}`,
     });
   });
 
   bot.handleChatShared(async ({ chatShared: { chat_id, title } }) => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: `You've shared chat (#${chat_id}) with title ${JSON.stringify(title)}`,
-      },
+      content: `You've shared chat (#${chat_id}) with title ${JSON.stringify(title)}`,
     });
   });
 
@@ -166,37 +154,25 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
 
     if (contact) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: `You've shared a contact: ${contact.first_name} (${contact.phone_number})`,
-        },
+        content: `You've shared a contact: ${contact.first_name} (${contact.phone_number})`,
       });
     }
 
     if (poll) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: `You've shared a poll: ${poll.question}`,
-        },
+        content: `You've shared a poll: ${poll.question}`,
       });
     }
 
     if (location) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: `You've shared a location: ${location.latitude}, ${location.longitude}`,
-        },
+        content: `You've shared a location: ${location.latitude}, ${location.longitude}`,
       });
     }
 
     if (text === closeKeyboardText) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Keyboard closed',
-        },
+        content: 'Keyboard closed',
         replyMarkup: {
           remove_keyboard: true,
         },
@@ -219,11 +195,8 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
 
   callbackDataProvider.handle('editTextResponse', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Edited text response',
-      },
-      replyMarkup: inlineKeyboard,
+      content: 'Edited text response',
+      replyMarkup: await callbackDataProvider.buildInlineKeyboard(inlineKeyboard),
     });
   });
 

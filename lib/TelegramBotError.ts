@@ -2,6 +2,7 @@ export const TelegramBotErrorCode = {
   EditSameContent: 'EditSameContent',
   EmptyButtonText: 'EmptyButtonText',
   LongCallbackData: 'LongCallbackData',
+  MissingCallbackData: 'MissingCallbackData',
   LongNotificationText: 'LongNotificationText',
   NoLocationPoint: 'NoLocationPoint',
   UnsupportedCallbackData: 'UnsupportedCallbackData',

@@ -48,10 +48,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     });
 
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: "What's your name?",
-      },
+      content: "What's your name?",
     });
   });
 
@@ -60,10 +57,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
 
     if (!text) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Please send a text message',
-        },
+        content: 'Please send a text message',
       });
     }
 
@@ -73,10 +67,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     });
 
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: "What's your age?",
-      },
+      content: "What's your age?",
     });
   });
 
@@ -85,10 +76,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
 
     if (!text) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Please send a text message',
-        },
+        content: 'Please send a text message',
       });
     }
 
@@ -96,19 +84,13 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
 
     if (Number.isNaN(age)) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Please enter a valid number',
-        },
+        content: 'Please enter a valid number',
       });
     }
 
     if (age <= 0) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Age must be a positive number',
-        },
+        content: 'Age must be a positive number',
       });
     }
 
@@ -119,10 +101,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     });
 
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Where do you live?',
-      },
+      content: 'Where do you live?',
     });
   });
 
@@ -131,10 +110,7 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
 
     if (!text) {
       return new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Please send a text message',
-        },
+        content: 'Please send a text message',
       });
     }
 
@@ -143,12 +119,9 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
     });
 
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: Markdown.create`${Markdown.bold('Your name:')} ${user.data.name}
+      content: Markdown.create`${Markdown.bold('Your name:')} ${user.data.name}
 ${Markdown.bold('Your age:')} ${user.data.age}
 ${Markdown.bold('Your location:')} ${text}`,
-      },
     });
   });
 

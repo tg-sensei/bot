@@ -1,5 +1,5 @@
 export * from './error';
-export * from './inlineKeyboard';
 export * from './is';
 export * from './map';
+export * from './message';
 export * from './promise';

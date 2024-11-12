@@ -72,11 +72,8 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
 
         return new ActionsStreamAction(async function* () {
           yield new MessageAction({
-            content: {
-              type: 'text',
-              text: 'Set created',
-            },
-            replyMarkup: [
+            content: 'Set created',
+            replyMarkup: await callbackDataProvider.buildInlineKeyboard([
               [
                 {
                   type: 'callbackData',
@@ -87,7 +84,7 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
                   },
                 },
               ],
-            ],
+            ]),
           });
 
           const stickerSet = await bot.api.getStickerSet({
@@ -116,10 +113,7 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
     });
 
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Set deleted',
-      },
+      content: 'Set deleted',
     });
   });
 

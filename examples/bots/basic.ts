@@ -7,6 +7,7 @@ import {
   ActionsBatchAction,
   ActionsStreamAction,
   GeoPoint,
+  InlineKeyboard,
   MessageAction as LibMessageAction,
   NotificationAction as LibNotificationAction,
   Markdown,
@@ -101,20 +102,14 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
 
   bot.handleCommand('/start', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Hi',
-      },
+      content: 'Hi',
     });
   });
 
   bot.handleCommand('/simple', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Simple text response',
-      },
-      replyMarkup: [
+      content: 'Simple text response',
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -122,16 +117,14 @@ const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
             callbackData: 'editSimpleText',
           },
         ],
-      ],
+      ]),
       messageEffect: effectsPool[Math.floor(Math.random() * effectsPool.length)],
     });
   });
 
   bot.handleCommand('/markdown', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: Markdown.create`plain text
+      content: Markdown.create`plain text
 
 ${Markdown.bold('bold')}
 
@@ -194,7 +187,6 @@ blockquote row 9`,
   true,
 )}
 `,
-      },
     });
   });
 
@@ -205,7 +197,7 @@ blockquote row 9`,
         photo: createReadStream(path.resolve('./examples/assets/house.png')),
         text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
       },
-      replyMarkup: [
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -213,7 +205,7 @@ blockquote row 9`,
             callbackData: 'editPhoto',
           },
         ],
-      ],
+      ]),
     });
   });
 
@@ -227,7 +219,7 @@ blockquote row 9`,
         title: 'Cool title',
         thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
       },
-      replyMarkup: [
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -235,7 +227,7 @@ blockquote row 9`,
             callbackData: 'editAudio',
           },
         ],
-      ],
+      ]),
     });
   });
 
@@ -246,7 +238,7 @@ blockquote row 9`,
         document: createReadStream(path.resolve('./examples/assets/file1.txt')),
         text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
       },
-      replyMarkup: [
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -268,7 +260,7 @@ blockquote row 9`,
             callbackData: 'editDocumentWithPhoto',
           },
         ],
-      ],
+      ]),
     });
   });
 
@@ -296,7 +288,7 @@ blockquote row 9`,
             text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
             thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
           },
-          replyMarkup: [
+          replyMarkup: new InlineKeyboard([
             [
               {
                 type: 'callbackData',
@@ -304,7 +296,7 @@ blockquote row 9`,
                 callbackData: 'editVideo',
               },
             ],
-          ],
+          ]),
         }),
     });
   });
@@ -317,7 +309,7 @@ blockquote row 9`,
         text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
         thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
       },
-      replyMarkup: [
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -325,7 +317,7 @@ blockquote row 9`,
             callbackData: 'editAnimation',
           },
         ],
-      ],
+      ]),
     });
   });
 
@@ -417,7 +409,7 @@ blockquote row 9`,
         },
         livePeriod: 5 * 60 * 1000,
       },
-      replyMarkup: [
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -425,7 +417,7 @@ blockquote row 9`,
             callbackData: 'startMoving',
           },
         ],
-      ],
+      ]),
     });
   });
 
@@ -510,11 +502,8 @@ blockquote row 9`,
 
   bot.handleCommand('/notification_showcase', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'Notification showcase',
-      },
-      replyMarkup: [
+      content: 'Notification showcase',
+      replyMarkup: new InlineKeyboard([
         [
           {
             type: 'callbackData',
@@ -536,16 +525,13 @@ blockquote row 9`,
             callbackData: 'responseWithNotificationAndText',
           },
         ],
-      ],
+      ]),
     });
   });
 
   callbackDataProvider.handle('editSimpleText', async () => {
     return new MessageAction({
-      content: {
-        type: 'text',
-        text: 'edited text',
-      },
+      content: 'edited text',
     });
   });
 
@@ -641,7 +627,7 @@ blockquote row 9`,
         content: {
           type: 'unmodified',
         },
-        replyMarkup: [
+        replyMarkup: new InlineKeyboard([
           [
             {
               type: 'callbackData',
@@ -649,7 +635,7 @@ blockquote row 9`,
               callbackData: 'stopMoving',
             },
           ],
-        ],
+        ]),
       });
 
       const start = performance.now();
@@ -664,7 +650,7 @@ blockquote row 9`,
             type: 'location',
             point: newPoint,
           },
-          replyMarkup: [
+          replyMarkup: new InlineKeyboard([
             [
               {
                 type: 'callbackData',
@@ -672,7 +658,7 @@ blockquote row 9`,
                 callbackData: 'stopMoving',
               },
             ],
-          ],
+          ]),
         });
 
         if (
@@ -717,10 +703,7 @@ blockquote row 9`,
   callbackDataProvider.handle('responseWithNotificationAndText', async () => {
     return new ActionsBatchAction(() => [
       new MessageAction({
-        content: {
-          type: 'text',
-          text: 'Text response',
-        },
+        content: 'Text response',
       }),
       new NotificationAction({
         text: 'Notification response',
