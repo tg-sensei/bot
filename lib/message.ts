@@ -14,6 +14,7 @@ import {
   ReplyKeyboardMarkup,
   ReplyKeyboardRemove,
 } from 'typescript-telegram-bot-api/dist/types';
+import { Message } from 'typescript-telegram-bot-api/dist/types/Message';
 
 import { InlineKeyboard } from './InlineKeyboard';
 import { Markdown } from './Markdown';
@@ -118,11 +119,16 @@ export type GeoPoint = {
 
 export type MessageLocationContent = {
   type: 'location';
-  point: GeoPoint | null;
+  point: GeoPoint;
   horizontalAccuracy?: number;
   livePeriod?: number;
   heading?: number;
   proximityAlertRadius?: number;
+};
+
+export type MessageStoppedLocationContent = {
+  type: 'location';
+  point: null;
 };
 
 export type MessageVenueContent = {
@@ -182,6 +188,7 @@ export type MessageUnmodifiedContent = {
   type: 'unmodified';
 };
 
+// TODO: add game content
 export type MessageContent =
   | string
   | Markdown
@@ -197,6 +204,7 @@ export type MessageContent =
   | MessagePaidMediaContent
   | MessageMediaGroupContent
   | MessageLocationContent
+  | MessageStoppedLocationContent
   | MessageVenueContent
   | MessageContactContent
   | MessageDiceContent
@@ -215,3 +223,69 @@ export type ReplyMarkup =
   | ReplyKeyboardMarkup
   | ReplyKeyboardRemove
   | ForceReply;
+
+export type MessageType = keyof typeof MessageTypeContentMap;
+
+export const MessageTypeContentMap = {
+  text: 'text',
+  animation: 'animation',
+  audio: 'audio',
+  document: 'document',
+  photo: 'photo',
+  sticker: 'sticker',
+  story: 'story',
+  video: 'video',
+  video_note: 'videoNote',
+  voice: 'voice',
+  contact: 'contact',
+  dice: 'dice',
+  game: 'game',
+  poll: 'poll',
+  venue: 'venue',
+  location: 'location',
+  new_chat_members: 'newChatMembers',
+  left_chat_member: 'leftChatMember',
+  new_chat_title: 'newChatTitle',
+  new_chat_photo: 'newChatPhoto',
+  delete_chat_photo: 'deleteChatPhoto',
+  group_chat_created: 'groupChatCreated',
+  supergroup_chat_created: 'supergroupChatCreated',
+  channel_chat_created: 'channelChatCreated',
+  message_auto_delete_timer_changed: 'messageAutoDeleteTimerChanged',
+  migrate_to_chat_id: 'migrateToChatId',
+  migrate_from_chat_id: 'migrateFromChatId',
+  pinned_message: 'pinnedMessage',
+  invoice: 'invoice',
+  successful_payment: 'successfulPayment',
+  refunded_payment: 'refundedPayment',
+  users_shared: 'usersShared',
+  chat_shared: 'chatShared',
+  write_access_allowed: 'writeAccessAllowed',
+  passport_data: 'passportData',
+  proximity_alert_triggered: 'proximityAlertTriggered',
+  boost_added: 'boostAdded',
+  chat_background_set: 'chatBackgroundSet',
+  forum_topic_created: 'forumTopicCreated',
+  forum_topic_edited: 'forumTopicEdited',
+  forum_topic_closed: 'forumTopicClosed',
+  forum_topic_reopened: 'forumTopicReopened',
+  general_forum_topic_hidden: 'generalForumTopicHidden',
+  general_forum_topic_unhidden: 'generalForumTopicUnhidden',
+  giveaway_created: 'giveawayCreated',
+  giveaway: 'giveaway',
+  giveaway_winners: 'giveawayWinners',
+  giveaway_completed: 'giveawayCompleted',
+  video_chat_scheduled: 'videoChatScheduled',
+  video_chat_started: 'videoChatStarted',
+  video_chat_ended: 'videoChatEnded',
+  video_chat_participants_invited: 'videoChatParticipantsInvited',
+  web_app_data: 'webAppData',
+} as const;
+
+export type MessageProperties<Type extends MessageType> = {
+  [Key in (typeof MessageTypeContentMap)[Type]]: Required<Pick<Message, Type>>[Type];
+};
+
+export type AnyMessageProperties = {
+  [Type in MessageType]: MessageProperties<Type>;
+}[MessageType];

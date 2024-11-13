@@ -4,20 +4,23 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 import {
+  CommandsProvider,
   GeoPoint,
-  InlineKeyboard,
-  MessageResponse as LibMessageResponse,
-  NotificationResponse as LibNotificationResponse,
   Markdown,
+  MessageProvider,
   MessageReactionResponse,
+  MessageResponse,
+  NotificationResponse,
+  ProviderContext,
   ResponsesBatchResponse,
   ResponsesStreamResponse,
   StringCallbackDataProvider,
-  TelegramBot,
+  UpdatesContextByType,
+  UpdatesProvider,
   WaitingResponse,
 } from '../../lib';
 import { delay } from '../../lib/utils';
-import { CreateBot } from '../runExample';
+import { InitBot } from '../runExample';
 
 const commands = {
   '/start': undefined,
@@ -62,9 +65,6 @@ type CallbackData =
   | 'responseWithNotificationAlert'
   | 'responseWithNotificationAndText';
 
-const MessageResponse = LibMessageResponse<BotCommand, CallbackData>;
-const NotificationResponse = LibNotificationResponse<BotCommand, CallbackData>;
-
 const reactionsPool = ['👍', '👎', '❤', '🔥', '🥰', '👏', '😁', '🤔', '🤯', '😱', '🤬', '😢', '🎉'] as const;
 const dicePool = ['🎲', '🎯', '🏀', '⚽', '🎳', '🎰'] as const;
 const effectsPool = ['👍', '👎', '❤️', '🔥', '🎉', '💩'] as const;
@@ -92,39 +92,42 @@ const getCurrentCoord = (timeElapsed: number): GeoPoint => {
   };
 };
 
-const createBot: CreateBot<BotCommand, CallbackData> = (token) => {
-  const callbackDataProvider = new StringCallbackDataProvider<BotCommand, CallbackData>();
-  const bot = new TelegramBot({
-    token,
-    commands,
-    callbackDataProvider,
+const initBot: InitBot = async (bot) => {
+  const updatesProvider = new UpdatesProvider();
+  const commandsProvider = new CommandsProvider<BotCommand, UpdatesContextByType<'message'>>();
+  const messageProvider = new MessageProvider<UpdatesContextByType<'callback_query'>>();
+  const callbackDataProvider = new StringCallbackDataProvider<CallbackData, ProviderContext<typeof messageProvider>>();
+
+  commandsProvider.handle('/start', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: 'Hi',
+      }),
+    );
   });
 
-  bot.handleCommand('/start', async () => {
-    return new MessageResponse({
-      content: 'Hi',
-    });
+  commandsProvider.handle('/simple', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: 'Simple text response',
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Edit text',
+              callbackData: 'editSimpleText',
+            },
+          ],
+        ]),
+        messageEffect: effectsPool[Math.floor(Math.random() * effectsPool.length)],
+      }),
+    );
   });
 
-  bot.handleCommand('/simple', async () => {
-    return new MessageResponse({
-      content: 'Simple text response',
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Edit text',
-            callbackData: 'editSimpleText',
-          },
-        ],
-      ]),
-      messageEffect: effectsPool[Math.floor(Math.random() * effectsPool.length)],
-    });
-  });
-
-  bot.handleCommand('/markdown', async () => {
-    return new MessageResponse({
-      content: Markdown.create`plain text
+  commandsProvider.handle('/markdown', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: Markdown.create`plain text
 
 ${Markdown.bold('bold')}
 
@@ -187,386 +190,435 @@ blockquote row 9`,
   true,
 )}
 `,
-    });
+      }),
+    );
   });
 
-  bot.handleCommand('/photo', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'photo',
-        photo: createReadStream(path.resolve('./examples/assets/house.png')),
-        text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
-      },
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Edit photo',
-            callbackData: 'editPhoto',
-          },
-        ],
-      ]),
-    });
-  });
-
-  bot.handleCommand('/audio', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'audio',
-        audio: createReadStream(path.resolve('./examples/assets/audio1.mp3')),
-        text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
-        performer: 'Cool performer',
-        title: 'Cool title',
-        thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
-      },
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Edit audio',
-            callbackData: 'editAudio',
-          },
-        ],
-      ]),
-    });
-  });
-
-  bot.handleCommand('/document', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'document',
-        document: createReadStream(path.resolve('./examples/assets/file1.txt')),
-        text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
-      },
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Read document',
-            callbackData: 'readDocument',
-          },
-        ],
-        [
-          {
-            type: 'callbackData',
-            text: 'Edit document',
-            callbackData: 'editDocument',
-          },
-        ],
-        [
-          {
-            type: 'callbackData',
-            text: 'Edit document with photo',
-            callbackData: 'editDocumentWithPhoto',
-          },
-        ],
-      ]),
-    });
-  });
-
-  bot.handleCommand('/large_document', async () => {
-    return new WaitingResponse({
-      type: 'upload_document',
-      getResponse: () =>
-        new MessageResponse({
-          content: {
-            type: 'document',
-            document: createReadStream(path.resolve('./examples/assets/video0.mp4')),
-          },
-        }),
-    });
-  });
-
-  bot.handleCommand('/video', async () => {
-    return new WaitingResponse({
-      type: 'upload_video',
-      getResponse: () =>
-        new MessageResponse({
-          content: {
-            type: 'video',
-            video: createReadStream(path.resolve('./examples/assets/video1.mp4')),
-            text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
-            thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
-          },
-          replyMarkup: new InlineKeyboard([
-            [
-              {
-                type: 'callbackData',
-                text: 'Edit video',
-                callbackData: 'editVideo',
-              },
-            ],
-          ]),
-        }),
-    });
-  });
-
-  bot.handleCommand('/animation', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'animation',
-        animation: createReadStream(path.resolve('./examples/assets/animation1.gif')),
-        text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
-        thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
-      },
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Edit animation',
-            callbackData: 'editAnimation',
-          },
-        ],
-      ]),
-    });
-  });
-
-  bot.handleCommand('/voice', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'voice',
-        voice: createReadStream(path.resolve('./examples/assets/audio1.mp3')),
-        text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
-      },
-    });
-  });
-
-  bot.handleCommand('/video_note', async () => {
-    return new WaitingResponse({
-      type: 'upload_video_note',
-      getResponse: () =>
-        new MessageResponse({
-          content: {
-            type: 'videoNote',
-            videoNote: createReadStream(path.resolve('./examples/assets/video_note.mp4')),
-            thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
-          },
-        }),
-    });
-  });
-
-  bot.handleCommand('/paid_media', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'paidMedia',
-        starCount: 1,
-        media: [
-          {
-            type: 'photo',
-            media: createReadStream(path.resolve('./examples/assets/house.png')),
-          },
-          {
-            type: 'video',
-            media: createReadStream(path.resolve('./examples/assets/video1.mp4')),
-          },
-        ],
-      },
-    });
-  });
-
-  bot.handleCommand('/media_group', async () => {
-    return new WaitingResponse({
-      type: 'upload_document',
-      getResponse: () =>
-        new MessageResponse({
-          content: {
-            type: 'mediaGroup',
-            media: [
-              {
-                type: 'photo',
-                media: createReadStream(path.resolve('./examples/assets/house.png')),
-              },
-              {
-                type: 'video',
-                media: createReadStream(path.resolve('./examples/assets/video1.mp4')),
-              },
-            ],
-          },
-        }),
-    });
-  });
-
-  bot.handleCommand('/location', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'location',
-        point: {
-          latitude: 56.7447061,
-          longitude: 60.8036319,
+  commandsProvider.handle('/photo', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'photo',
+          photo: createReadStream(path.resolve('./examples/assets/house.png')),
+          text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
         },
-        horizontalAccuracy: 10,
-      },
-    });
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Edit photo',
+              callbackData: 'editPhoto',
+            },
+          ],
+        ]),
+      }),
+    );
   });
 
-  bot.handleCommand('/live_location', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'location',
-        point: {
-          latitude: liveStartCoord.latitude,
-          longitude: liveStartCoord.longitude,
+  commandsProvider.handle('/audio', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'audio',
+          audio: createReadStream(path.resolve('./examples/assets/audio1.mp3')),
+          text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
+          performer: 'Cool performer',
+          title: 'Cool title',
+          thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
         },
-        livePeriod: 5 * 60 * 1000,
-      },
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Start moving',
-            callbackData: 'startMoving',
-          },
-        ],
-      ]),
-    });
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Edit audio',
+              callbackData: 'editAudio',
+            },
+          ],
+        ]),
+      }),
+    );
   });
 
-  bot.handleCommand('/venue', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'venue',
-        point: {
-          latitude: 56.7447061,
-          longitude: 60.8036319,
+  commandsProvider.handle('/document', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'document',
+          document: createReadStream(path.resolve('./examples/assets/file1.txt')),
+          text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
         },
-        title: 'Koltsovo Airport',
-        address: "ul. Bahchivandji, 1, Yekaterinburg, Sverdlovskaya oblast', Russia, 620025",
-        googlePlaceId: 'ChIJvQOvvuVBwUMRokF0eTgS0RA',
-        googlePlaceType: 'airport',
-      },
-    });
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Read document',
+              callbackData: 'readDocument',
+            },
+          ],
+          [
+            {
+              type: 'callbackData',
+              text: 'Edit document',
+              callbackData: 'editDocument',
+            },
+          ],
+          [
+            {
+              type: 'callbackData',
+              text: 'Edit document with photo',
+              callbackData: 'editDocumentWithPhoto',
+            },
+          ],
+        ]),
+      }),
+    );
   });
 
-  bot.handleCommand('/contact', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'contact',
-        phoneNumber: '+71234567890',
-        firstName: 'Jimmy',
-        lastName: 'Baxter',
-      },
-    });
+  commandsProvider.handle('/large_document', async (ctx) => {
+    await ctx.respondWith(
+      new WaitingResponse({
+        type: 'upload_document',
+        getResponse: () =>
+          new MessageResponse({
+            content: {
+              type: 'document',
+              document: createReadStream(path.resolve('./examples/assets/video0.mp4')),
+            },
+          }),
+      }),
+    );
   });
 
-  bot.handleCommand('/dice', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'dice',
-        emoji: dicePool[Math.floor(Math.random() * dicePool.length)],
-      },
-    });
+  commandsProvider.handle('/video', async (ctx) => {
+    await ctx.respondWith(
+      new WaitingResponse({
+        type: 'upload_video',
+        getResponse: async () =>
+          new MessageResponse({
+            content: {
+              type: 'video',
+              video: createReadStream(path.resolve('./examples/assets/video1.mp4')),
+              text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
+              thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
+            },
+            replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+              [
+                {
+                  type: 'callbackData',
+                  text: 'Edit video',
+                  callbackData: 'editVideo',
+                },
+              ],
+            ]),
+          }),
+      }),
+    );
   });
 
-  bot.handleCommand('/poll', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'poll',
-        question: 'How are you feeling?',
-        options: ['Good!', 'Very good!'],
-        openPeriod: 20 * 1000,
-      },
-    });
+  commandsProvider.handle('/animation', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'animation',
+          animation: createReadStream(path.resolve('./examples/assets/animation1.gif')),
+          text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
+          thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
+        },
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Edit animation',
+              callbackData: 'editAnimation',
+            },
+          ],
+        ]),
+      }),
+    );
   });
 
-  bot.handleCommand('/quiz', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'poll',
-        pollType: 'quiz',
-        question: 'What is 2 * 2?',
-        options: ['4', '5'],
-        correctOptionIds: [0],
-        explanation: 'Everyone knows that 2 * 2 = 4',
-      },
-    });
+  commandsProvider.handle('/voice', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'voice',
+          voice: createReadStream(path.resolve('./examples/assets/audio1.mp3')),
+          text: Markdown.create`caption with ${Markdown.bold('bold')} text`,
+        },
+      }),
+    );
   });
 
-  bot.handleCommand('/sticker', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'sticker',
-        sticker: 'CAACAgIAAxkBAAO8Zu4QdD3371GUb8FesINmN-A8pWcAAgEAA8A2TxMYLnMwqz8tUTYE',
-      },
-    });
+  commandsProvider.handle('/video_note', async (ctx) => {
+    await ctx.respondWith(
+      new WaitingResponse({
+        type: 'upload_video_note',
+        getResponse: () =>
+          new MessageResponse({
+            content: {
+              type: 'videoNote',
+              videoNote: createReadStream(path.resolve('./examples/assets/video_note.mp4')),
+              thumbnail: createReadStream(path.resolve('./examples/assets/thumb1.png')),
+            },
+          }),
+      }),
+    );
   });
 
-  bot.handleCommand('/reaction', async () => {
-    return new MessageReactionResponse({
-      reaction: {
-        type: 'emoji',
-        emoji: reactionsPool[Math.floor(Math.random() * reactionsPool.length)],
-      },
-      isBig: Math.random() < 0.5,
-    });
+  commandsProvider.handle('/paid_media', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'paidMedia',
+          starCount: 1,
+          media: [
+            {
+              type: 'photo',
+              media: createReadStream(path.resolve('./examples/assets/house.png')),
+            },
+            {
+              type: 'video',
+              media: createReadStream(path.resolve('./examples/assets/video1.mp4')),
+            },
+          ],
+        },
+      }),
+    );
   });
 
-  bot.handleCommand('/notification_showcase', async () => {
-    return new MessageResponse({
-      content: 'Notification showcase',
-      replyMarkup: new InlineKeyboard([
-        [
-          {
-            type: 'callbackData',
-            text: 'Notification response',
-            callbackData: 'responseWithNotification',
+  commandsProvider.handle('/media_group', async (ctx) => {
+    await ctx.respondWith(
+      new WaitingResponse({
+        type: 'upload_document',
+        getResponse: () =>
+          new MessageResponse({
+            content: {
+              type: 'mediaGroup',
+              media: [
+                {
+                  type: 'photo',
+                  media: createReadStream(path.resolve('./examples/assets/house.png')),
+                },
+                {
+                  type: 'video',
+                  media: createReadStream(path.resolve('./examples/assets/video1.mp4')),
+                },
+              ],
+            },
+          }),
+      }),
+    );
+  });
+
+  commandsProvider.handle('/location', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'location',
+          point: {
+            latitude: 56.7447061,
+            longitude: 60.8036319,
           },
-        ],
-        [
-          {
-            type: 'callbackData',
-            text: 'Alert response',
-            callbackData: 'responseWithNotificationAlert',
+          horizontalAccuracy: 10,
+        },
+      }),
+    );
+  });
+
+  commandsProvider.handle('/live_location', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'location',
+          point: {
+            latitude: liveStartCoord.latitude,
+            longitude: liveStartCoord.longitude,
           },
-        ],
-        [
-          {
-            type: 'callbackData',
-            text: 'Notification + text response',
-            callbackData: 'responseWithNotificationAndText',
+          livePeriod: 5 * 60 * 1000,
+        },
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Start moving',
+              callbackData: 'startMoving',
+            },
+          ],
+        ]),
+      }),
+    );
+  });
+
+  commandsProvider.handle('/venue', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'venue',
+          point: {
+            latitude: 56.7447061,
+            longitude: 60.8036319,
           },
-        ],
-      ]),
-    });
+          title: 'Koltsovo Airport',
+          address: "ul. Bahchivandji, 1, Yekaterinburg, Sverdlovskaya oblast', Russia, 620025",
+          googlePlaceId: 'ChIJvQOvvuVBwUMRokF0eTgS0RA',
+          googlePlaceType: 'airport',
+        },
+      }),
+    );
   });
 
-  callbackDataProvider.handle('editSimpleText', async () => {
-    return new MessageResponse({
-      content: 'edited text',
-    });
+  commandsProvider.handle('/contact', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'contact',
+          phoneNumber: '+71234567890',
+          firstName: 'Jimmy',
+          lastName: 'Baxter',
+        },
+      }),
+    );
   });
 
-  callbackDataProvider.handle(['editPhoto', 'editDocumentWithPhoto'], async () => {
-    return new MessageResponse({
-      content: {
-        type: 'photo',
-        photo: createReadStream(path.resolve('./examples/assets/house_heart.png')),
-        text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
-        showCaptionAboveMedia: true,
-        hasSpoiler: true,
-      },
-    });
+  commandsProvider.handle('/dice', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'dice',
+          emoji: dicePool[Math.floor(Math.random() * dicePool.length)],
+        },
+      }),
+    );
   });
 
-  callbackDataProvider.handle('editAudio', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'audio',
-        audio: createReadStream(path.resolve('./examples/assets/audio2.mp3')),
-        text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
-        performer: 'New performer',
-        title: 'New title',
-        thumbnail: createReadStream(path.resolve('./examples/assets/thumb2.png')),
-      },
-    });
+  commandsProvider.handle('/poll', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'poll',
+          question: 'How are you feeling?',
+          options: ['Good!', 'Very good!'],
+          openPeriod: 20 * 1000,
+        },
+      }),
+    );
   });
 
-  callbackDataProvider.handle('readDocument', async ({ message }) => {
-    const { document } = message;
+  commandsProvider.handle('/quiz', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'poll',
+          pollType: 'quiz',
+          question: 'What is 2 * 2?',
+          options: ['4', '5'],
+          correctOptionId: 0,
+          explanation: 'Everyone knows that 2 * 2 = 4',
+        },
+      }),
+    );
+  });
+
+  commandsProvider.handle('/sticker', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'sticker',
+          sticker: 'CAACAgIAAxkBAAO8Zu4QdD3371GUb8FesINmN-A8pWcAAgEAA8A2TxMYLnMwqz8tUTYE',
+        },
+      }),
+    );
+  });
+
+  commandsProvider.handle('/reaction', async (ctx) => {
+    await ctx.respondWith(
+      new MessageReactionResponse({
+        reaction: {
+          type: 'emoji',
+          emoji: reactionsPool[Math.floor(Math.random() * reactionsPool.length)],
+        },
+        isBig: Math.random() < 0.5,
+      }),
+    );
+  });
+
+  commandsProvider.handle('/notification_showcase', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: 'Notification showcase',
+        replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+          [
+            {
+              type: 'callbackData',
+              text: 'Notification response',
+              callbackData: 'responseWithNotification',
+            },
+          ],
+          [
+            {
+              type: 'callbackData',
+              text: 'Alert response',
+              callbackData: 'responseWithNotificationAlert',
+            },
+          ],
+          [
+            {
+              type: 'callbackData',
+              text: 'Notification + text response',
+              callbackData: 'responseWithNotificationAndText',
+            },
+          ],
+        ]),
+      }),
+    );
+  });
+
+  callbackDataProvider.handle('editSimpleText', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: 'edited text',
+      }),
+    );
+  });
+
+  callbackDataProvider.handle(['editPhoto', 'editDocumentWithPhoto'], async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'photo',
+          photo: createReadStream(path.resolve('./examples/assets/house_heart.png')),
+          text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
+          showCaptionAboveMedia: true,
+          hasSpoiler: true,
+        },
+      }),
+    );
+  });
+
+  callbackDataProvider.handle('editAudio', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'audio',
+          audio: createReadStream(path.resolve('./examples/assets/audio2.mp3')),
+          text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
+          performer: 'New performer',
+          title: 'New title',
+          thumbnail: createReadStream(path.resolve('./examples/assets/thumb2.png')),
+        },
+      }),
+    );
+  });
+
+  callbackDataProvider.handle('readDocument', async (ctx) => {
+    const { document } = ctx.message;
 
     if (!document) {
-      return new NotificationResponse({
-        text: 'No document',
-      });
+      return ctx.respondWith(
+        new NotificationResponse({
+          text: 'No document',
+        }),
+      );
     }
 
     const filePath = path.resolve(`./examples/downloads/${document.file_id}`);
@@ -580,77 +632,63 @@ blockquote row 9`,
 
     await rm(filePath);
 
-    return new NotificationResponse({
-      text: `Text from document: ${JSON.stringify(fileContent)}`,
-    });
+    await ctx.respondWith(
+      new NotificationResponse({
+        text: `Text from document: ${JSON.stringify(fileContent)}`,
+      }),
+    );
   });
 
-  callbackDataProvider.handle('editDocument', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'document',
-        document: createReadStream(path.resolve('./examples/assets/file2.txt')),
-        text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
-      },
-    });
-  });
-
-  callbackDataProvider.handle('editVideo', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'video',
-        video: createReadStream(path.resolve('./examples/assets/video2.mp4')),
-        text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
-        thumbnail: createReadStream(path.resolve('./examples/assets/thumb2.png')),
-        showCaptionAboveMedia: true,
-        hasSpoiler: true,
-      },
-    });
-  });
-
-  callbackDataProvider.handle('editAnimation', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'animation',
-        animation: createReadStream(path.resolve('./examples/assets/animation2.gif')),
-        text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
-        thumbnail: createReadStream(path.resolve('./examples/assets/thumb2.png')),
-        showCaptionAboveMedia: true,
-        hasSpoiler: true,
-      },
-    });
-  });
-
-  callbackDataProvider.handle('startMoving', async () => {
-    return new ResponsesStreamResponse(async function* () {
-      yield new MessageResponse({
+  callbackDataProvider.handle('editDocument', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
         content: {
-          type: 'unmodified',
+          type: 'document',
+          document: createReadStream(path.resolve('./examples/assets/file2.txt')),
+          text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
         },
-        replyMarkup: new InlineKeyboard([
-          [
-            {
-              type: 'callbackData',
-              text: 'Stop moving',
-              callbackData: 'stopMoving',
-            },
-          ],
-        ]),
-      });
+      }),
+    );
+  });
 
-      const start = performance.now();
+  callbackDataProvider.handle('editVideo', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'video',
+          video: createReadStream(path.resolve('./examples/assets/video2.mp4')),
+          text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
+          thumbnail: createReadStream(path.resolve('./examples/assets/thumb2.png')),
+          showCaptionAboveMedia: true,
+          hasSpoiler: true,
+        },
+      }),
+    );
+  });
 
-      while (true) {
-        await delay(5000);
+  callbackDataProvider.handle('editAnimation', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'animation',
+          animation: createReadStream(path.resolve('./examples/assets/animation2.gif')),
+          text: Markdown.create`edited caption with ${Markdown.bold('bold')} text`,
+          thumbnail: createReadStream(path.resolve('./examples/assets/thumb2.png')),
+          showCaptionAboveMedia: true,
+          hasSpoiler: true,
+        },
+      }),
+    );
+  });
 
-        const newPoint = getCurrentCoord(performance.now() - start);
-
+  callbackDataProvider.handle('startMoving', async (ctx) => {
+    await ctx.respondWith(
+      new ResponsesStreamResponse(async function* () {
         yield new MessageResponse({
           content: {
-            type: 'location',
-            point: newPoint,
+            type: 'unmodified',
           },
-          replyMarkup: new InlineKeyboard([
+          replyMarkup: await callbackDataProvider.buildInlineKeyboard([
             [
               {
                 type: 'callbackData',
@@ -661,57 +699,98 @@ blockquote row 9`,
           ]),
         });
 
-        if (
-          Math.abs(newPoint.latitude - liveEndCoord.latitude) < Number.EPSILON &&
-          Math.abs(newPoint.longitude - liveEndCoord.longitude) < Number.EPSILON
-        ) {
+        const start = performance.now();
+
+        while (true) {
+          await delay(5000);
+
+          const newPoint = getCurrentCoord(performance.now() - start);
+
           yield new MessageResponse({
             content: {
               type: 'location',
-              point: null,
+              point: newPoint,
             },
+            replyMarkup: await callbackDataProvider.buildInlineKeyboard([
+              [
+                {
+                  type: 'callbackData',
+                  text: 'Stop moving',
+                  callbackData: 'stopMoving',
+                },
+              ],
+            ]),
           });
 
-          break;
+          if (
+            Math.abs(newPoint.latitude - liveEndCoord.latitude) < Number.EPSILON &&
+            Math.abs(newPoint.longitude - liveEndCoord.longitude) < Number.EPSILON
+          ) {
+            yield new MessageResponse({
+              content: {
+                type: 'location',
+                point: null,
+              },
+            });
+
+            break;
+          }
         }
-      }
-    });
-  });
-
-  callbackDataProvider.handle('stopMoving', async () => {
-    return new MessageResponse({
-      content: {
-        type: 'location',
-        point: null,
-      },
-    });
-  });
-
-  callbackDataProvider.handle('responseWithNotification', async () => {
-    return new NotificationResponse({
-      text: 'Notification response',
-    });
-  });
-
-  callbackDataProvider.handle('responseWithNotificationAlert', async () => {
-    return new NotificationResponse({
-      text: 'Alert response',
-      showAlert: true,
-    });
-  });
-
-  callbackDataProvider.handle('responseWithNotificationAndText', async () => {
-    return new ResponsesBatchResponse(() => [
-      new MessageResponse({
-        content: 'Text response',
       }),
+    );
+  });
+
+  callbackDataProvider.handle('stopMoving', async (ctx) => {
+    await ctx.respondWith(
+      new MessageResponse({
+        content: {
+          type: 'location',
+          point: null,
+        },
+      }),
+    );
+  });
+
+  callbackDataProvider.handle('responseWithNotification', async (ctx) => {
+    await ctx.respondWith(
       new NotificationResponse({
         text: 'Notification response',
       }),
-    ]);
+    );
   });
 
-  return bot;
+  callbackDataProvider.handle('responseWithNotificationAlert', async (ctx) => {
+    await ctx.respondWith(
+      new NotificationResponse({
+        text: 'Alert response',
+        showAlert: true,
+      }),
+    );
+  });
+
+  callbackDataProvider.handle('responseWithNotificationAndText', async (ctx) => {
+    await ctx.respondWith(
+      new ResponsesBatchResponse(() => [
+        new MessageResponse({
+          content: 'Text response',
+        }),
+        new NotificationResponse({
+          text: 'Notification response',
+        }),
+      ]),
+    );
+  });
+
+  messageProvider.use(callbackDataProvider);
+
+  updatesProvider.handle('message', commandsProvider);
+  updatesProvider.handle('callback_query', messageProvider);
+
+  bot.use(updatesProvider);
+
+  await bot.api.setMyCommands({
+    commands: commandsProvider.prepareCommands(commands),
+  });
 };
 
-export default createBot;
+export default initBot;

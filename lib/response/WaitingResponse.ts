@@ -1,42 +1,43 @@
 import { performance } from 'node:perf_hooks';
 
-import { TelegramBot as LibTelegramBot } from 'typescript-telegram-bot-api';
-
-import { BaseCommand } from '../TelegramBot';
+import { SendChatActionOptions } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
 import { MaybePromise } from '../types';
 import { PromiseWithResolvers, delay, promiseWithResolvers } from '../utils';
-import { Response, ResponseOnMessage, ResponseOnMessageContext } from './Response';
+import { Response } from './Response';
 
-export type WaitingResponseType = Parameters<LibTelegramBot['sendChatAction']>[0]['action'];
+export type WaitingResponseType = SendChatActionOptions['action'];
 
 export type WaitingResponseMode = 'oneTime' | 'waitForResponse';
 
-export type WaitingResponseOptions<CommandType extends BaseCommand, CallbackData, UserData> = {
+export type WaitingResponseOptions = {
   type: WaitingResponseType;
   mode?: WaitingResponseMode;
   businessConnectionId?: string;
-  getResponse: () => MaybePromise<ResponseOnMessage<CommandType, CallbackData, UserData> | null | undefined | void>;
+  getResponse: () => MaybePromise<Response | null | undefined | void>;
 };
 
-/* eslint-disable brace-style */
-export class WaitingResponse<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
-  implements Response<CommandType, CallbackData, UserData>
-{
-  /* eslint-enable brace-style */
-  private readonly _getResponse: WaitingResponseOptions<CommandType, CallbackData, UserData>['getResponse'];
+export class WaitingResponse implements Response {
+  private readonly _getResponse: WaitingResponseOptions['getResponse'];
 
   readonly type: WaitingResponseType;
   readonly mode: WaitingResponseMode;
   readonly businessConnectionId?: string;
 
-  constructor(options: WaitingResponseOptions<CommandType, CallbackData, UserData>) {
+  constructor(options: WaitingResponseOptions) {
     this.type = options.type;
     this.mode = options.mode ?? 'waitForResponse';
     this.businessConnectionId = options.businessConnectionId;
     this._getResponse = options.getResponse;
   }
 
-  async onMessage(ctx: ResponseOnMessageContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async respond(ctx: AnyUpdateContext): Promise<void> {
+    const { update } = ctx;
+
+    if (update.type !== 'message') {
+      return;
+    }
+
     let promise: PromiseWithResolvers<void> | undefined;
     let responseSent = false;
 
@@ -45,7 +46,7 @@ export class WaitingResponse<CommandType extends BaseCommand = never, CallbackDa
         try {
           const response = await this._getResponse();
 
-          await response?.onMessage(ctx);
+          await response?.respond(ctx);
         } finally {
           responseSent = true;
 
@@ -56,12 +57,14 @@ export class WaitingResponse<CommandType extends BaseCommand = never, CallbackDa
         while (!responseSent) {
           const timestamp = performance.now();
 
-          await ctx.bot.api.sendChatAction({
-            chat_id: ctx.message.chat.id,
-            message_thread_id: ctx.message.message_thread_id,
-            business_connection_id: this.businessConnectionId,
+          await ctx.bot.sendChatAction({
+            chatId: update.message.chat.id,
+            messageThreadId: update.message.message_thread_id,
+            businessConnectionId: this.businessConnectionId,
             action: this.type,
           });
+
+          ctx.responseSent = true;
 
           if (responseSent || this.mode === 'oneTime') {
             break;

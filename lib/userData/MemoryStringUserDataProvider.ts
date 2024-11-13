@@ -1,4 +1,4 @@
-import { BaseCommand } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
 import { MaybePromise } from '../types';
 import { upsertInMap } from '../utils';
 import { StringUserDataProvider } from './StringUserDataProvider';
@@ -8,10 +8,9 @@ export type MemoryStringUserDataProviderOptions<UserData extends string> = {
 };
 
 export class MemoryStringUserDataProvider<
-  CommandType extends BaseCommand = never,
-  CallbackData = never,
-  UserData extends string = never,
-> extends StringUserDataProvider<CommandType, CallbackData, UserData> {
+  UserData extends string,
+  InputContext extends AnyUpdateContext,
+> extends StringUserDataProvider<UserData, InputContext> {
   private readonly _userDataMap = new Map<number, UserData>();
   private readonly _getDefaultValue: (userId: number) => MaybePromise<UserData>;
 

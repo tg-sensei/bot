@@ -1,32 +1,18 @@
-import { BaseCommand } from '../TelegramBot';
-import { Response, ResponseOnCallbackQueryContext, ResponseOnMessageContext } from './Response';
+import { AnyUpdateContext } from '../context';
+import { Response } from './Response';
 
-export type ResponsesStreamResponseGetResponses<
-  CommandType extends BaseCommand,
-  CallbackData,
-  UserData,
-> = () => AsyncGenerator<Response<CommandType, CallbackData, UserData> | null | undefined>;
+export type ResponsesStreamResponseGetResponses = () => AsyncGenerator<Response | null | undefined | void>;
 
-/* eslint-disable brace-style */
-export class ResponsesStreamResponse<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
-  implements Response<CommandType, CallbackData, UserData>
-{
-  /* eslint-enable brace-style */
-  private readonly _getResponses: ResponsesStreamResponseGetResponses<CommandType, CallbackData, UserData>;
+export class ResponsesStreamResponse implements Response {
+  private readonly _getResponses: ResponsesStreamResponseGetResponses;
 
-  constructor(getResponses: ResponsesStreamResponseGetResponses<CommandType, CallbackData, UserData>) {
+  constructor(getResponses: ResponsesStreamResponseGetResponses) {
     this._getResponses = getResponses;
   }
 
-  async onCallbackQuery(ctx: ResponseOnCallbackQueryContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async respond(ctx: AnyUpdateContext): Promise<void> {
     for await (const response of this._getResponses()) {
-      await response?.onCallbackQuery?.(ctx);
-    }
-  }
-
-  async onMessage(ctx: ResponseOnMessageContext<CommandType, CallbackData, UserData>): Promise<void> {
-    for await (const response of this._getResponses()) {
-      await response?.onMessage?.(ctx);
+      await response?.respond(ctx);
     }
   }
 }

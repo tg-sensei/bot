@@ -1,19 +1,15 @@
 import { ReactionType } from 'typescript-telegram-bot-api';
 
-import { BaseCommand } from '../TelegramBot';
+import { AnyUpdateContext, getUpdateContextMessage } from '../context';
 import { isArray } from '../utils';
-import { Response, ResponseOnMessageContext } from './Response';
+import { Response } from './Response';
 
 export type MessageReactionResponseOptions = {
   reaction?: ReactionType | ReactionType[];
   isBig?: boolean;
 };
 
-/* eslint-disable brace-style */
-export class MessageReactionResponse<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
-  implements Response<CommandType, CallbackData, UserData>
-{
-  /* eslint-enable brace-style */
+export class MessageReactionResponse implements Response {
   readonly reaction?: ReactionType[];
   readonly isBig?: boolean;
 
@@ -22,12 +18,20 @@ export class MessageReactionResponse<CommandType extends BaseCommand = never, Ca
     this.isBig = options?.isBig;
   }
 
-  async onMessage(ctx: ResponseOnMessageContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async respond(ctx: AnyUpdateContext): Promise<void> {
+    const message = getUpdateContextMessage(ctx);
+
+    if (!message) {
+      return;
+    }
+
     await ctx.bot.api.setMessageReaction({
-      chat_id: ctx.message.chat.id,
-      message_id: ctx.message.message_id,
+      chat_id: message.chat.id,
+      message_id: message.message_id,
       reaction: this.reaction,
       is_big: this.isBig,
     });
+
+    ctx.responseSent = true;
   }
 }

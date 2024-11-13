@@ -1,6 +1,7 @@
-import { BaseCommand, MessageHandler } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
+import { Handler, getHandlerMiddleware } from '../middleware';
 import { Filter, MaybePromise } from '../types';
-import { UserDataProvider } from './UserDataProvider';
+import { UserDataContextExtension, UserDataProvider } from './UserDataProvider';
 
 export type BaseJsonUserDataState = string;
 
@@ -18,50 +19,33 @@ export type JsonUserDataProviderOptions<UserData extends BaseJsonUserData<BaseJs
   setUserData: (userId: number, data: UserData) => MaybePromise<void>;
 };
 
-/* eslint-disable brace-style */
 export class JsonUserDataProvider<
-  CommandType extends BaseCommand = never,
-  CallbackData = never,
-  UserData extends BaseJsonUserData<BaseJsonUserDataState> = never,
-> implements UserDataProvider<CommandType, CallbackData, UserData>
-{
-  /* eslint-enable brace-style */
-  private readonly _handlers: {
-    [State in UserData['state']]?: MessageHandler<
-      CommandType,
-      CallbackData,
-      UserData,
-      JsonUserDataByState<UserData, State>,
-      true
-    >;
-  } = {};
-
+  UserData extends BaseJsonUserData<BaseJsonUserDataState>,
+  InputContext extends AnyUpdateContext,
+> extends UserDataProvider<UserData, InputContext> {
   getOrCreateUserData: (userId: number) => MaybePromise<UserData>;
   setUserData: (userId: number, data: UserData) => MaybePromise<void>;
 
   constructor(options: JsonUserDataProviderOptions<UserData>) {
+    super();
+
     this.getOrCreateUserData = options.getOrCreateUserData;
     this.setUserData = options.setUserData;
   }
 
-  getUserDataHandler<Data extends UserData>(
-    userData: Data,
-  ): MessageHandler<CommandType, CallbackData, UserData, Data, true> | null {
-    return (
-      (this._handlers[userData.state as Data['state']] as
-        | MessageHandler<CommandType, CallbackData, UserData, Data, true>
-        | undefined) ?? null
-    );
-  }
-
   handle<State extends UserData['state']>(
     state: State | State[],
-    handler: MessageHandler<CommandType, CallbackData, UserData, JsonUserDataByState<UserData, State>, true>,
+    handler: Handler<InputContext & UserDataContextExtension<JsonUserDataByState<UserData, State>>>,
   ): this {
-    for (const dataType of typeof state === 'string' ? [state] : state) {
-      this._handlers[dataType] = handler;
-    }
+    const middleware = getHandlerMiddleware(handler);
+    const states: (UserData['state'] | null | undefined)[] = typeof state === 'string' ? [state] : state;
 
-    return this;
+    return this.use(async (ctx, next) => {
+      if (states.includes(ctx.user?.data?.state)) {
+        await middleware(ctx as InputContext & UserDataContextExtension<JsonUserDataByState<UserData, State>>, next);
+      } else {
+        await next();
+      }
+    });
   }
 }

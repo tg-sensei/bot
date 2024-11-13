@@ -4,22 +4,19 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
 import {
-  BotCommand,
-  CallbackQuery,
-  ChatShared,
   InlineKeyboardMarkup,
   Message,
+  Poll,
   ReplyParameters,
   TelegramBot as TelegramBotApi,
   UpdateType,
   User,
-  UsersShared,
 } from 'typescript-telegram-bot-api';
 
 import { InlineKeyboard } from './InlineKeyboard';
 import { Markdown } from './Markdown';
 import { TelegramBotError, TelegramBotErrorCode } from './TelegramBotError';
-import { CallbackDataProvider } from './callbackData';
+import { AnyUpdate, AnyUpdateContext, UpdateTypePropertyMap } from './context';
 import {
   MessageAnimationContent,
   MessageAudioContent,
@@ -28,116 +25,33 @@ import {
   MessageEffect,
   MessageLocationContent,
   MessagePhotoContent,
+  MessageStoppedLocationContent,
   MessageTextContent,
   MessageUnmodifiedContent,
   MessageVideoContent,
   ReplyMarkup,
 } from './message';
-import { ResponseOnCallbackQuery, ResponseOnMessage } from './response';
-import { MaybePromise } from './types';
-import { UserDataProvider } from './userData';
-import { getMessageEffectId, getReplyMarkup, isTruthy, prepareErrorForLogging, prepareMessageContent } from './utils';
-
-export type MessageErrorResponseContext = {
-  err: unknown;
-  message: Message;
-};
-
-export type GetMessageErrorResponse<CommandType extends BaseCommand, CallbackData, UserData> = (
-  ctx: MessageErrorResponseContext,
-) => MaybePromise<ResponseOnMessage<CommandType, CallbackData, UserData> | null | undefined | void>;
-
-export type CallbackQueryErrorResponseContext = {
-  err: unknown;
-  message: Message;
-  query: CallbackQuery;
-};
-
-export type GetCallbackQueryErrorResponse<CommandType extends BaseCommand, CallbackData, UserData> = (
-  ctx: CallbackQueryErrorResponseContext,
-) => MaybePromise<ResponseOnCallbackQuery<CommandType, CallbackData, UserData> | null | undefined | void>;
-
-export type UsersSharedHandlerContext = {
-  usersShared: UsersShared;
-};
-
-export type UsersSharedHandler<in out CommandType extends BaseCommand, in out CallbackData, in out UserData> = (
-  ctx: UsersSharedHandlerContext,
-) => MaybePromise<ResponseOnMessage<CommandType, CallbackData, UserData> | null | undefined | void>;
-
-export type ChatSharedHandlerContext = {
-  chatShared: ChatShared;
-};
-
-export type ChatSharedHandler<in out CommandType extends BaseCommand, in out CallbackData, in out UserData> = (
-  ctx: ChatSharedHandlerContext,
-) => MaybePromise<ResponseOnMessage<CommandType, CallbackData, UserData> | null | undefined | void>;
-
-export type BotCommands<CommandType extends BaseCommand> = Partial<Record<CommandType, string>>;
+import { Handler } from './middleware';
+import {
+  getMessageEffectId,
+  getReplyMarkup,
+  prepareErrorForLogging,
+  prepareMessageContent,
+  runHandlers,
+} from './utils';
+import { createInheritedObject } from './utils/object';
 
 export type TelegramBotAgent = {
   destroy: () => void;
 };
 
-// TODO: add businessConnectionId
-export type TelegramBotOptions<CommandType extends BaseCommand, CallbackData, UserData> = {
+export type TelegramBotOptions = {
   token: string;
   agent?: TelegramBotAgent;
   baseURL?: string;
   allowedUpdates?: UpdateType[];
-  commands?: BotCommands<CommandType>;
-  callbackDataProvider?: CallbackDataProvider<NoInfer<CommandType>, CallbackData, NoInfer<UserData>>;
-  usernameWhitelist?: string[];
-  getMessageErrorResponse?: GetMessageErrorResponse<NoInfer<CommandType>, NoInfer<CallbackData>, NoInfer<UserData>>;
-  getCallbackQueryErrorResponse?: GetCallbackQueryErrorResponse<
-    NoInfer<CommandType>,
-    NoInfer<CallbackData>,
-    NoInfer<UserData>
-  >;
-} & ([UserData] extends [never | undefined]
-  ? {
-      userDataProvider?: never;
-    }
-  : {
-      userDataProvider: UserDataProvider<NoInfer<CommandType>, NoInfer<CallbackData>, UserData>;
-    });
-
-export type UserWithData<UserData> = User & {
-  data: UserData;
+  businessConnectionId?: string;
 };
-
-export type MessageHandlerContext<CommandType extends BaseCommand, UserData, WithUser extends boolean> = {
-  message: Message;
-  user: WithUser extends true ? UserWithData<UserData> : undefined;
-  commands: (CommandType | string)[];
-};
-
-export type MessageHandler<
-  in out CommandType extends BaseCommand,
-  in out CallbackData,
-  in out UserData,
-  MessageUserData extends UserData,
-  WithUser extends boolean,
-> = (
-  ctx: MessageHandlerContext<CommandType, MessageUserData, WithUser>,
-) => MaybePromise<ResponseOnMessage<CommandType, CallbackData, UserData> | null | undefined | void>;
-
-export type CallbackQueryHandlerContext<UserData, QueryCallbackData> = {
-  data: QueryCallbackData;
-  message: Message;
-  user: UserWithData<UserData>;
-};
-
-export type CallbackQueryHandler<
-  in out CommandType extends BaseCommand,
-  in out CallbackData,
-  in out UserData,
-  QueryCallbackData extends CallbackData,
-> = (
-  ctx: CallbackQueryHandlerContext<UserData, QueryCallbackData>,
-) => MaybePromise<ResponseOnCallbackQuery<CommandType, CallbackData, UserData> | null | undefined | void>;
-
-export type BaseCommand = `/${string}`;
 
 export type DownloadFileOptions = {
   fileId: string;
@@ -155,9 +69,11 @@ export type EditMessageContent =
   | MessageVideoContent
   | MessageAnimationContent
   | MessageLocationContent
+  | MessageStoppedLocationContent
   | MessageUnmodifiedContent;
 
 export type EditMessageOptions = {
+  // TODO: make chatId: number | string; once typings are fixed
   chatId: number;
   messageId: number;
   content: EditMessageContent;
@@ -165,11 +81,25 @@ export type EditMessageOptions = {
   replyMarkup?: InlineKeyboard | InlineKeyboardMarkup;
 };
 
-export type SendMessageContent = Exclude<MessageContent, MessageUnmodifiedContent>;
+export type PinChatMessageOptions = {
+  chatId: number;
+  messageId: number;
+  businessConnectionId?: string;
+  disableNotification?: boolean;
+};
+
+export type SendChatActionOptions = {
+  chatId: number | string;
+  messageThreadId?: number;
+  businessConnectionId?: string;
+  action: Parameters<TelegramBotApi['sendChatAction']>[0]['action'];
+};
+
+export type SendMessageContent = Exclude<MessageContent, MessageStoppedLocationContent | MessageUnmodifiedContent>;
 
 export type SendMessageOptions = {
   content: SendMessageContent;
-  chatId: number;
+  chatId: number | string;
   replyMarkup?: ReplyMarkup;
   businessConnectionId?: string;
   messageThreadId?: number;
@@ -180,49 +110,43 @@ export type SendMessageOptions = {
   messageEffect?: MessageEffect;
 };
 
+export type StopPollOptions = {
+  chatId: number | string;
+  messageId: number;
+  businessConnectionId?: string;
+  replyMarkup?: InlineKeyboard | InlineKeyboardMarkup;
+};
+
+export type UnpinChatMessageOptions = {
+  chatId: number;
+  messageId: number;
+  businessConnectionId?: string;
+};
+
 export type TelegramBotEvents = {
   responseError: [err: unknown];
 };
 
-export class TelegramBot<
-  in out CommandType extends BaseCommand = never,
-  in out CallbackData = never,
-  in out UserData = never,
-> extends EventEmitter<TelegramBotEvents> {
-  private readonly _commandHandlers: Partial<
-    Record<CommandType, MessageHandler<CommandType, CallbackData, UserData, UserData, boolean>>
-  > = {};
-  private readonly _getMessageErrorResponse?: GetMessageErrorResponse<CommandType, CallbackData, UserData>;
-  private readonly _getCallbackQueryErrorResponse?: GetCallbackQueryErrorResponse<CommandType, CallbackData, UserData>;
-  private _messageHandler?: MessageHandler<CommandType, CallbackData, UserData, UserData, boolean>;
-  private _usersSharedHandler?: UsersSharedHandler<CommandType, CallbackData, UserData>;
-  private _chatSharedHandler?: ChatSharedHandler<CommandType, CallbackData, UserData>;
+export class TelegramBot extends EventEmitter<TelegramBotEvents> {
+  private readonly _handlers: Handler<AnyUpdateContext>[] = [];
   private _meInfo?: User;
 
   readonly token: string;
   readonly baseURL: string;
+  readonly businessConnectionId?: string;
   readonly api: TelegramBotApi;
-  readonly commands?: BotCommands<CommandType>;
-  readonly callbackDataProvider?: CallbackDataProvider<CommandType, CallbackData, UserData>;
-  readonly userDataProvider?: UserDataProvider<CommandType, CallbackData, UserData>;
-  readonly usernameWhitelist?: string[];
 
-  constructor(options: TelegramBotOptions<CommandType, CallbackData, UserData>) {
+  constructor(options: TelegramBotOptions) {
     super();
 
     this.token = options.token;
     this.baseURL = options.baseURL ?? 'https://api.telegram.org';
+    this.businessConnectionId = options.businessConnectionId;
     this.api = new TelegramBotApi({
       botToken: options.token,
       agent: options.agent,
       allowedUpdates: options.allowedUpdates,
     });
-    this.commands = options.commands;
-    this.callbackDataProvider = options.callbackDataProvider;
-    this.userDataProvider = options.userDataProvider;
-    this.usernameWhitelist = options.usernameWhitelist;
-    this._getMessageErrorResponse = options.getMessageErrorResponse;
-    this._getCallbackQueryErrorResponse = options.getCallbackQueryErrorResponse;
   }
 
   private _emitResponseError(err: unknown): void {
@@ -259,7 +183,7 @@ export class TelegramBot<
     const editBasicOptions = {
       chat_id: options.chatId,
       message_id: options.messageId,
-      business_connection_id: options.businessConnectionId,
+      business_connection_id: options.businessConnectionId ?? this.businessConnectionId,
       reply_markup:
         options.replyMarkup instanceof InlineKeyboard ? options.replyMarkup.getMarkup() : options.replyMarkup,
     };
@@ -269,8 +193,6 @@ export class TelegramBot<
 
     try {
       if (content.type === 'text') {
-        // TODO: if message has caption, edit caption instead
-
         editedMessage = await this.api.editMessageText({
           ...editBasicOptions,
           text: content.text.toString(),
@@ -385,43 +307,28 @@ export class TelegramBot<
     return editedMessage;
   }
 
-  handleChatShared(handler: ChatSharedHandler<CommandType, CallbackData, UserData>): this {
-    this._chatSharedHandler = handler;
-
-    return this;
+  pinChatMessage(options: PinChatMessageOptions): Promise<true> {
+    return this.api.pinChatMessage({
+      chat_id: options.chatId,
+      message_id: options.messageId,
+      business_connection_id: options.businessConnectionId,
+      disable_notification: options.disableNotification,
+    });
   }
 
-  handleCommand(
-    command: CommandType,
-    handler: MessageHandler<CommandType, CallbackData, UserData, UserData, boolean>,
-  ): this {
-    this._commandHandlers[command] = handler;
-
-    return this;
-  }
-
-  handleMessage(handler: MessageHandler<CommandType, CallbackData, UserData, UserData, boolean>): this {
-    this._messageHandler = handler;
-
-    return this;
-  }
-
-  // TODO: add handleText (match: string | string[] | RegExp, callback: MessageCallback)
-
-  handleUsersShared(handler: UsersSharedHandler<CommandType, CallbackData, UserData>): this {
-    this._usersSharedHandler = handler;
-
-    return this;
-  }
-
-  isUserAllowed(user: User): boolean {
-    return Boolean(user.username && (!this.usernameWhitelist || this.usernameWhitelist.includes(user.username)));
+  async sendChatAction(options: SendChatActionOptions): Promise<true> {
+    return this.api.sendChatAction({
+      chat_id: options.chatId,
+      message_thread_id: options.messageThreadId,
+      business_connection_id: options.businessConnectionId ?? this.businessConnectionId,
+      action: options.action,
+    });
   }
 
   async sendMessage(options: SendMessageOptions): Promise<Message[]> {
     const sendBasicOptions = {
       chat_id: options.chatId,
-      business_connection_id: options.businessConnectionId,
+      business_connection_id: options.businessConnectionId ?? this.businessConnectionId,
       message_thread_id: options.messageThreadId,
       disable_notification: options.disableNotification,
       reply_parameters: options.replyParameters,
@@ -568,7 +475,7 @@ export class TelegramBot<
       const { point } = content;
 
       if (!point) {
-        throw new TelegramBotError(TelegramBotErrorCode.NoLocationPoint);
+        throw new TelegramBotError(TelegramBotErrorCode.UnsupportedContent);
       }
 
       return [
@@ -676,223 +583,67 @@ export class TelegramBot<
   }
 
   async start(): Promise<void> {
-    this.api.on('message', async (message) => {
+    const processUpdateContext = async (update: AnyUpdate) => {
       try {
-        const { from: telegramUser, text, entities, users_shared: usersShared, chat_shared: chatShared } = message;
-
-        if (usersShared && this._usersSharedHandler) {
-          const response = await this._usersSharedHandler({
-            usersShared,
-          });
-
-          await response?.onMessage({
-            message,
-            bot: this,
-          });
-
-          return;
-        }
-
-        if (chatShared && this._chatSharedHandler) {
-          const response = await this._chatSharedHandler({
-            chatShared,
-          });
-
-          await response?.onMessage({
-            message,
-            bot: this,
-          });
-
-          return;
-        }
-
-        if (telegramUser && !this.isUserAllowed(telegramUser)) {
-          return;
-        }
-
-        const user = telegramUser && {
-          ...telegramUser,
-          data: (await this.userDataProvider?.getOrCreateUserData(telegramUser.id)) as UserData,
-        };
-        const commands =
-          entities
-            ?.filter(({ type }) => type === 'bot_command')
-            .map(({ offset, length }) => {
-              const fullCommand = text?.slice(offset, offset + length);
-
-              if (!fullCommand) {
-                return;
-              }
-
-              const split = fullCommand.split('@');
-              const botUsername = split.at(1);
-
-              if (botUsername && botUsername !== this._meInfo?.username) {
-                return;
-              }
-
-              return split[0];
-            })
-            .filter(isTruthy) ?? [];
-
-        let handler: MessageHandler<CommandType, CallbackData, UserData, UserData, boolean> | null | undefined;
-
-        // TODO: add support for multiple commands
-        for (const command of commands) {
-          if (command in this._commandHandlers) {
-            handler = this._commandHandlers[command as CommandType];
-          }
-
-          if (handler) {
-            break;
-          }
-        }
-
-        if (user) {
-          handler ??= this.userDataProvider?.getUserDataHandler<UserData>(user.data);
-        }
-
-        handler ??= this._messageHandler;
-
-        const response = await handler?.({
-          message,
-          user,
-          commands,
-        });
-
-        await response?.onMessage({
-          message,
+        let responseSent = false;
+        const ctx: AnyUpdateContext = createInheritedObject(null, {
           bot: this,
+          get responseSent() {
+            return responseSent;
+          },
+          set responseSent(value) {
+            responseSent ||= value;
+          },
+          respondWith: async (response) => {
+            await response.respond(ctx);
+          },
+          update,
         });
+
+        await runHandlers(this._handlers, ctx, async () => {});
       } catch (err) {
         this._emitResponseError(err);
-
-        try {
-          const response = await this._getMessageErrorResponse?.({
-            err,
-            message,
-          });
-
-          await response?.onMessage({
-            message,
-            bot: this,
-          });
-        } catch (err) {
-          this._emitResponseError(err);
-        }
       }
-    });
+    };
 
-    this.api.on('callback_query', async (query) => {
-      const answerQuery = async () => {
-        await this.api.answerCallbackQuery({
-          callback_query_id: query.id,
-        });
-      };
-
-      try {
-        const { from: telegramUser, message, data } = query;
-
-        if (!message || !this.isUserAllowed(telegramUser)) {
-          return await answerQuery();
-        }
-
-        // TODO: handle no data for Game
-        if (data === undefined) {
-          throw new TelegramBotError(TelegramBotErrorCode.UnsupportedCallbackData);
-        }
-
-        if (!this.callbackDataProvider) {
-          return;
-        }
-
-        const [user, callbackData] = await Promise.all([
-          (async () => ({
-            ...telegramUser,
-            data: (await this.userDataProvider?.getOrCreateUserData(telegramUser.id)) as UserData,
-          }))(),
-          this.callbackDataProvider.parseCallbackData(data),
-        ]);
-
-        if (callbackData == null) {
-          return await answerQuery();
-        }
-
-        const handler = this.callbackDataProvider.getCallbackQueryHandler(callbackData);
-
-        if (!handler) {
-          throw new TelegramBotError(TelegramBotErrorCode.UnsupportedCallbackData);
-        }
-
-        const response = await handler({
-          data: callbackData,
-          message,
-          user,
-        });
-
-        if (response) {
-          await response.onCallbackQuery({
-            bot: this,
-            query,
-          });
-        } else {
-          await answerQuery();
-        }
-      } catch (err) {
-        this._emitResponseError(err);
-
-        if (!query.message) {
-          return await answerQuery();
-        }
-
-        try {
-          const response = await this._getCallbackQueryErrorResponse?.({
-            err,
-            message: query.message,
-            query,
-          });
-
-          if (response) {
-            await response.onCallbackQuery({
-              bot: this,
-              query,
-            });
-          } else {
-            await answerQuery();
-          }
-        } catch (err) {
-          this._emitResponseError(err);
-        }
-      }
+    Object.entries(UpdateTypePropertyMap).forEach(([updateType, updateProperty]) => {
+      this.api.on(updateType as UpdateType, (updateValue) => {
+        processUpdateContext({
+          type: updateType,
+          [updateProperty]: updateValue,
+        } as AnyUpdate);
+      });
     });
 
     await Promise.all([
       this.api.startPolling(),
       (async () => {
-        if (!this.commands) {
-          return;
-        }
-
-        const commandsArray: BotCommand[] = [];
-
-        for (const command in this.commands) {
-          const description = this.commands[command];
-
-          if (description) {
-            commandsArray.push({
-              command,
-              description,
-            });
-          }
-        }
-
-        await this.api.setMyCommands({
-          commands: commandsArray,
-        });
-      })(),
-      (async () => {
         this._meInfo = await this.api.getMe();
       })(),
     ]);
+  }
+
+  async stopPoll(options: StopPollOptions): Promise<Poll> {
+    return this.api.stopPoll({
+      chat_id: options.chatId,
+      message_id: options.messageId,
+      business_connection_id: options.businessConnectionId ?? this.businessConnectionId,
+      reply_markup:
+        options.replyMarkup instanceof InlineKeyboard ? options.replyMarkup.getMarkup() : options.replyMarkup,
+    });
+  }
+
+  unpinChatMessage(options: UnpinChatMessageOptions): Promise<true> {
+    return this.api.unpinChatMessage({
+      chat_id: options.chatId,
+      message_id: options.messageId,
+      business_connection_id: options.businessConnectionId,
+    });
+  }
+
+  use(handler: Handler<AnyUpdateContext>): this {
+    this._handlers.push(handler);
+
+    return this;
   }
 }

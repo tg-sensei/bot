@@ -1,6 +1,6 @@
-import { BaseCommand } from '../TelegramBot';
 import { TelegramBotError, TelegramBotErrorCode } from '../TelegramBotError';
-import { Response, ResponseOnCallbackQueryContext } from './Response';
+import { AnyUpdateContext } from '../context';
+import { Response } from './Response';
 
 export interface NotificationResponseOptions {
   text: string;
@@ -9,11 +9,7 @@ export interface NotificationResponseOptions {
   cacheTime?: number;
 }
 
-/* eslint-disable brace-style */
-export class NotificationResponse<CommandType extends BaseCommand = never, CallbackData = never, UserData = never>
-  implements Response<CommandType, CallbackData, UserData>
-{
-  /* eslint-enable brace-style */
+export class NotificationResponse implements Response {
   private readonly text: string;
   private readonly showAlert?: boolean;
   private readonly url?: string;
@@ -26,7 +22,11 @@ export class NotificationResponse<CommandType extends BaseCommand = never, Callb
     this.cacheTime = options.cacheTime;
   }
 
-  async onCallbackQuery(ctx: ResponseOnCallbackQueryContext<CommandType, CallbackData, UserData>): Promise<void> {
+  async respond(ctx: AnyUpdateContext): Promise<void> {
+    if (ctx.update.type !== 'callback_query') {
+      return;
+    }
+
     if (this.text.length > 200) {
       throw new TelegramBotError(TelegramBotErrorCode.LongNotificationText, {
         message: `Notification text is too long: ${JSON.stringify(this.text)}`,
@@ -34,11 +34,13 @@ export class NotificationResponse<CommandType extends BaseCommand = never, Callb
     }
 
     await ctx.bot.api.answerCallbackQuery({
-      callback_query_id: ctx.query.id,
+      callback_query_id: ctx.update.callbackQuery.id,
       text: this.text,
       show_alert: this.showAlert,
       url: this.url,
       cache_time: this.cacheTime,
     });
+
+    ctx.responseSent = true;
   }
 }

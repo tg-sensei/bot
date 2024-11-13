@@ -1,11 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 
-import { BaseCommand, TelegramBot } from '../lib';
+import { TelegramBot } from '../lib';
 
-export type CreateBot<CommandType extends BaseCommand = never, CallbackData = never, UserData = never> = (
-  token: string,
-) => TelegramBot<CommandType, CallbackData, UserData>;
+export type InitBot = (bot: TelegramBot) => unknown;
 
 (async () => {
   try {
@@ -31,9 +29,13 @@ export type CreateBot<CommandType extends BaseCommand = never, CallbackData = ne
       }),
     });
 
-    const { default: createBot }: { default: CreateBot<any, any, any> } = await import(`./bots/${example}`);
-    const bot = createBot(token);
+    const bot = new TelegramBot({
+      token,
+    });
 
+    const { default: initBot }: { default: InitBot } = await import(`./bots/${example}`);
+
+    await initBot(bot);
     await bot.start();
 
     console.log(`Bot ${JSON.stringify(example)} started`);

@@ -1,12 +1,11 @@
-import { BaseCommand } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
 import { BaseJsonCallbackData, BaseJsonCallbackDataType } from './JsonCallbackDataProvider';
 import { JsonStorageCallbackDataProvider } from './JsonStorageCallbackDataProvider';
 
 export class MemoryJsonStorageCallbackDataProvider<
-  CommandType extends BaseCommand = never,
-  CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType> = never,
-  UserData = never,
-> extends JsonStorageCallbackDataProvider<CommandType, CallbackData, UserData> {
+  CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType>,
+  InputContext extends AnyUpdateContext,
+> extends JsonStorageCallbackDataProvider<CallbackData, InputContext> {
   private readonly _callbackDataMap = new Map<string, CallbackData>();
 
   constructor() {

@@ -1,6 +1,7 @@
-import { BaseCommand, CallbackQueryHandler } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
+import { Handler, getHandlerMiddleware } from '../middleware';
 import { Filter, MaybePromise } from '../types';
-import { CallbackDataProvider } from './CallbackDataProvider';
+import { CallbackDataContextExtension, CallbackDataProvider } from './CallbackDataProvider';
 
 export type BaseJsonCallbackDataType = string;
 
@@ -21,18 +22,9 @@ export type JsonCallbackDataProviderOptions<
 };
 
 export class JsonCallbackDataProvider<
-  in out CommandType extends BaseCommand = never,
-  in out CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType> = never,
-  in out UserData = never,
-> extends CallbackDataProvider<CommandType, CallbackData, UserData> {
-  private readonly _handlers: {
-    [Type in CallbackData['type']]?: CallbackQueryHandler<
-      CommandType,
-      CallbackData,
-      UserData,
-      JsonCallbackDataByType<CallbackData, Type>
-    >;
-  } = {};
+  CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType>,
+  InputContext extends AnyUpdateContext,
+> extends CallbackDataProvider<CallbackData, InputContext> {
   private readonly _parseJson: (json: string) => CallbackData;
 
   constructor(options: JsonCallbackDataProviderOptions<CallbackData['type'], CallbackData> = {}) {
@@ -41,25 +33,23 @@ export class JsonCallbackDataProvider<
     this._parseJson = options.parseJson ?? JSON.parse;
   }
 
-  getCallbackQueryHandler<Data extends CallbackData>(
-    data: Data,
-  ): CallbackQueryHandler<CommandType, CallbackData, UserData, Data> | null {
-    return (
-      (this._handlers[data.type as Data['type']] as
-        | CallbackQueryHandler<CommandType, CallbackData, UserData, Data>
-        | undefined) ?? null
-    );
-  }
-
   handle<Type extends CallbackData['type']>(
     type: Type | Type[],
-    handler: CallbackQueryHandler<CommandType, CallbackData, UserData, JsonCallbackDataByType<CallbackData, Type>>,
+    handler: Handler<InputContext & CallbackDataContextExtension<JsonCallbackDataByType<CallbackData, Type>>>,
   ): this {
-    for (const dataType of typeof type === 'string' ? [type] : type) {
-      this._handlers[dataType] = handler;
-    }
+    const middleware = getHandlerMiddleware(handler);
+    const dataTypes: (CallbackData['type'] | undefined)[] = typeof type === 'string' ? [type] : type;
 
-    return this;
+    return this.use(async (ctx, next) => {
+      if (dataTypes.includes(ctx.callbackData?.type)) {
+        await middleware(
+          ctx as InputContext & CallbackDataContextExtension<JsonCallbackDataByType<CallbackData, Type>>,
+          next,
+        );
+      } else {
+        await next();
+      }
+    });
   }
 
   parseCallbackData(dataString: string): MaybePromise<CallbackData | null> {

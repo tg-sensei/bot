@@ -1,5 +1,14 @@
-import { MessageResponse as LibMessageResponse, Markdown, MemoryJsonUserDataProvider, TelegramBot } from '../../lib';
-import { CreateBot } from '../runExample';
+import {
+  CommandsProvider,
+  Markdown,
+  MemoryJsonUserDataProvider,
+  MessageResponse,
+  ProviderContext,
+  UpdatesContextByType,
+  UpdatesProvider,
+  UserProvider,
+} from '../../lib';
+import { InitBot } from '../runExample';
 
 const commands = {
   '/simple_quiz': 'Simple quiz',
@@ -24,41 +33,40 @@ type UserData =
       age: number;
     };
 
-const MessageResponse = LibMessageResponse<BotCommand, never, UserData>;
-
-const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
-  const userDataProvider = new MemoryJsonUserDataProvider<BotCommand, never, UserData>({
+const initBot: InitBot = async (bot) => {
+  const updatesProvider = new UpdatesProvider();
+  const userProvider = new UserProvider<UpdatesContextByType<'message'>>();
+  const commandsProvider = new CommandsProvider<BotCommand, ProviderContext<typeof userProvider>>();
+  const userDataProvider = new MemoryJsonUserDataProvider<UserData, UpdatesContextByType<'message'>>({
     defaultValue: {
       state: 'none',
     },
   });
-  const bot = new TelegramBot({
-    token,
-    commands,
-    userDataProvider,
-  });
 
-  bot.handleCommand('/simple_quiz', async ({ user }) => {
-    if (!user) {
-      return;
-    }
-
-    await userDataProvider.setUserData(user.id, {
+  commandsProvider.handle('/simple_quiz', async (ctx) => {
+    await userDataProvider.setUserData(ctx.user.id, {
       state: 'simple:get-name',
     });
 
-    return new MessageResponse({
-      content: "What's your name?",
-    });
+    await ctx.respondWith(
+      new MessageResponse({
+        content: "What's your name?",
+      }),
+    );
   });
 
-  userDataProvider.handle('simple:get-name', async ({ user, message }) => {
-    const { text } = message;
+  userDataProvider.handle('simple:get-name', async (ctx) => {
+    const {
+      user,
+      message: { text },
+    } = ctx;
 
     if (!text) {
-      return new MessageResponse({
-        content: 'Please send a text message',
-      });
+      return ctx.respondWith(
+        new MessageResponse({
+          content: 'Please send a text message',
+        }),
+      );
     }
 
     await userDataProvider.setUserData(user.id, {
@@ -66,32 +74,43 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
       name: text,
     });
 
-    return new MessageResponse({
-      content: "What's your age?",
-    });
+    await ctx.respondWith(
+      new MessageResponse({
+        content: "What's your age?",
+      }),
+    );
   });
 
-  userDataProvider.handle('simple:get-age', async ({ user, message }) => {
-    const { text } = message;
+  userDataProvider.handle('simple:get-age', async (ctx) => {
+    const {
+      user,
+      message: { text },
+    } = ctx;
 
     if (!text) {
-      return new MessageResponse({
-        content: 'Please send a text message',
-      });
+      return ctx.respondWith(
+        new MessageResponse({
+          content: 'Please send a text message',
+        }),
+      );
     }
 
     const age = Number(text);
 
     if (Number.isNaN(age)) {
-      return new MessageResponse({
-        content: 'Please enter a valid number',
-      });
+      return ctx.respondWith(
+        new MessageResponse({
+          content: 'Please enter a valid number',
+        }),
+      );
     }
 
     if (age <= 0) {
-      return new MessageResponse({
-        content: 'Age must be a positive number',
-      });
+      return ctx.respondWith(
+        new MessageResponse({
+          content: 'Age must be a positive number',
+        }),
+      );
     }
 
     await userDataProvider.setUserData(user.id, {
@@ -100,32 +119,50 @@ const createBot: CreateBot<BotCommand, never, UserData> = (token) => {
       age,
     });
 
-    return new MessageResponse({
-      content: 'Where do you live?',
-    });
+    await ctx.respondWith(
+      new MessageResponse({
+        content: 'Where do you live?',
+      }),
+    );
   });
 
-  userDataProvider.handle('simple:get-location', async ({ user, message }) => {
-    const { text } = message;
+  userDataProvider.handle('simple:get-location', async (ctx) => {
+    const {
+      user,
+      message: { text },
+    } = ctx;
 
     if (!text) {
-      return new MessageResponse({
-        content: 'Please send a text message',
-      });
+      return ctx.respondWith(
+        new MessageResponse({
+          content: 'Please send a text message',
+        }),
+      );
     }
 
     await userDataProvider.setUserData(user.id, {
       state: 'none',
     });
 
-    return new MessageResponse({
-      content: Markdown.create`${Markdown.bold('Your name:')} ${user.data.name}
+    await ctx.respondWith(
+      new MessageResponse({
+        content: Markdown.create`${Markdown.bold('Your name:')} ${user.data.name}
 ${Markdown.bold('Your age:')} ${user.data.age}
 ${Markdown.bold('Your location:')} ${text}`,
-    });
+      }),
+    );
   });
 
-  return bot;
+  userProvider.use(commandsProvider);
+
+  updatesProvider.handle('message', userProvider);
+  updatesProvider.handle('message', userDataProvider);
+
+  bot.use(updatesProvider);
+
+  await bot.api.setMyCommands({
+    commands: commandsProvider.prepareCommands(commands),
+  });
 };
 
-export default createBot;
+export default initBot;

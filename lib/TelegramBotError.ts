@@ -4,8 +4,6 @@ export const TelegramBotErrorCode = {
   LongCallbackData: 'LongCallbackData',
   MissingCallbackData: 'MissingCallbackData',
   LongNotificationText: 'LongNotificationText',
-  NoLocationPoint: 'NoLocationPoint',
-  UnsupportedCallbackData: 'UnsupportedCallbackData',
   UnsupportedContent: 'UnsupportedContent',
 } as const;
 

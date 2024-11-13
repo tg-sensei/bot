@@ -1,4 +1,4 @@
-import { BaseCommand } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
 import { MaybePromise } from '../types';
 import { upsertInMap } from '../utils';
 import { BaseJsonUserData, BaseJsonUserDataState, JsonUserDataProvider } from './JsonUserDataProvider';
@@ -8,10 +8,9 @@ export type MemoryJsonUserDataProviderOptions<UserData extends BaseJsonUserData<
 };
 
 export class MemoryJsonUserDataProvider<
-  CommandType extends BaseCommand = never,
-  CallbackData = never,
-  UserData extends BaseJsonUserData<BaseJsonUserDataState> = never,
-> extends JsonUserDataProvider<CommandType, CallbackData, UserData> {
+  UserData extends BaseJsonUserData<BaseJsonUserDataState>,
+  InputContext extends AnyUpdateContext,
+> extends JsonUserDataProvider<UserData, InputContext> {
   private readonly _userDataMap = new Map<number, UserData>();
   private readonly _getDefaultValue: (userId: number) => MaybePromise<UserData>;
 

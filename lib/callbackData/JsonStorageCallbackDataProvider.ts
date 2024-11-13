@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-/* eslint-disable brace-style */
-import { BaseCommand } from '../TelegramBot';
+import { AnyUpdateContext } from '../context';
 import { MaybePromise } from '../types';
 import { BaseJsonCallbackData, BaseJsonCallbackDataType, JsonCallbackDataProvider } from './JsonCallbackDataProvider';
 
@@ -12,12 +11,9 @@ export type JsonStorageCallbackDataProviderOptions<CallbackData> = {
 };
 
 export class JsonStorageCallbackDataProvider<
-  CommandType extends BaseCommand = never,
-  CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType> = never,
-  UserData = never,
-> extends JsonCallbackDataProvider<CommandType, CallbackData, UserData> {
-  /* eslint-enable brace-style */
-
+  CallbackData extends BaseJsonCallbackData<BaseJsonCallbackDataType>,
+  InputContext extends AnyUpdateContext,
+> extends JsonCallbackDataProvider<CallbackData, InputContext> {
   private readonly _getData: JsonStorageCallbackDataProviderOptions<CallbackData>['getData'];
   private readonly _setData: JsonStorageCallbackDataProviderOptions<CallbackData>['setData'];
   private readonly _clearData: JsonStorageCallbackDataProviderOptions<CallbackData>['clearData'];
