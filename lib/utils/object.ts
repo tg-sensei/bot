@@ -5,5 +5,20 @@ export function createInheritedObject<T extends object | null, U extends object>
   object: T,
   properties: U,
 ): T extends null ? U : T & U {
-  return Object.create(object, Object.getOwnPropertyDescriptors(properties));
+  const inherited: T extends null ? U : T & U = Object.create(object, Object.getOwnPropertyDescriptors(properties));
+
+  if (!object) {
+    return inherited;
+  }
+
+  return new Proxy(inherited, {
+    set: (inherited, p, value: unknown) => {
+      const target = {}.hasOwnProperty.call(inherited, p) ? inherited : p in object ? object : inherited;
+
+      // @ts-ignore
+      target[p] = value;
+
+      return true;
+    },
+  });
 }
