@@ -23,7 +23,14 @@ export class UpdatesProvider<InputContext extends AnyUpdateContext> extends Prov
     return rest;
   }
 
-  handle<Type extends UpdateType>(updateType: Type | Type[], handler: Handler<UpdatesContextByType<Type>>): this {
+  handle<Type extends UpdateType>(
+    updateType: Type | Type[],
+    handler: Handler<
+      Omit<InputContext, 'update'> & {
+        update: UpdateByType<Type>;
+      } & UpdatesContextExtension<Type>
+    >,
+  ): this {
     const middleware = getHandlerMiddleware(handler);
     const updateTypes: UpdateType[] = typeof updateType === 'string' ? [updateType] : updateType;
 
