@@ -6,6 +6,8 @@ import { MaybePromise } from '../types';
 
 export type UserWithData<UserData> = User & {
   data: UserData;
+  setData: (data: UserData) => Promise<void>;
+  updateData: <UpdateKeys extends keyof UserData>(update: Pick<UserData, UpdateKeys>) => Promise<UserData>;
 };
 
 export type UserDataContextExtension<UserData> = {
@@ -22,13 +24,30 @@ export abstract class UserDataProvider<UserData, InputContext extends AnyUpdateC
   async getContextExtension(ctx: InputContext): Promise<UserDataContextExtension<UserData> | null> {
     const user = getUpdateContextUser(ctx);
 
-    return (
-      user && {
-        user: {
-          ...user,
-          data: await this.getOrCreateUserData(user.id),
-        },
-      }
-    );
+    if (!user) {
+      return null;
+    }
+
+    const userWithData: UserWithData<UserData> = {
+      ...user,
+      data: await this.getOrCreateUserData(user.id),
+      setData: async (data) => {
+        await this.setUserData(user.id, data);
+
+        userWithData.data = data;
+      },
+      updateData: async (update) => {
+        await userWithData.setData({
+          ...userWithData.data,
+          ...update,
+        });
+
+        return userWithData.data;
+      },
+    };
+
+    return {
+      user: userWithData,
+    };
   }
 }

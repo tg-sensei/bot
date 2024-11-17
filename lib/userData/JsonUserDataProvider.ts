@@ -42,7 +42,7 @@ export class JsonUserDataProvider<
 
     return this.use(async (ctx, next) => {
       if (states.includes(ctx.user?.data?.state)) {
-        await middleware(ctx as InputContext & UserDataContextExtension<JsonUserDataByState<UserData, State>>, next);
+        await middleware(ctx as any, next);
       } else {
         await next();
       }

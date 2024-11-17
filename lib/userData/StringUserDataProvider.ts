@@ -31,7 +31,7 @@ export class StringUserDataProvider<
 
     return this.use(async (ctx, next) => {
       if (dataTypes.includes(ctx.user?.data)) {
-        await middleware(ctx as InputContext & UserDataContextExtension<Data>, next);
+        await middleware(ctx as any, next);
       } else {
         await next();
       }
