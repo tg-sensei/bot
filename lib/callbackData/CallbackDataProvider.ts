@@ -10,7 +10,7 @@ export type CallbackDataContextExtension<CallbackData> = {
 
 export abstract class CallbackDataProvider<CallbackData, InputContext extends AnyUpdateContext> extends Provider<
   InputContext,
-  CallbackDataContextExtension<CallbackData | null>
+  CallbackDataContextExtension<CallbackData>
 > {
   abstract parseCallbackData(dataString: string): MaybePromise<CallbackData | null>;
   abstract stringifyData(data: CallbackData): MaybePromise<string>;
