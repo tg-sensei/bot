@@ -78,6 +78,10 @@ export function getUpdateContextMessage(ctx: AnyUpdateContext): Message | null {
 }
 
 export function getUpdateContextUser(ctx: AnyUpdateContext): User | null {
+  if (ctx.update.type === 'callback_query') {
+    return ctx.update.callbackQuery.from;
+  }
+
   const message = getUpdateContextMessage(ctx);
 
   if (message) {
