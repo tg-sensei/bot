@@ -3,16 +3,16 @@ import { createWriteStream } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
-import { TelegramBot as TelegramBotApi } from 'typescript-telegram-bot-api';
 import {
   BotCommand,
   CallbackQuery,
   ChatShared,
   Message,
+  TelegramBot as TelegramBotApi,
   UpdateType,
   User,
   UsersShared,
-} from 'typescript-telegram-bot-api/dist/types';
+} from 'typescript-telegram-bot-api';
 
 import { TelegramBotError, TelegramBotErrorCode } from './TelegramBotError';
 import { ActionOnCallbackQuery, ActionOnMessage } from './action';
@@ -58,8 +58,13 @@ export type ChatSharedHandler<in out CommandType extends BaseCommand, in out Cal
 
 export type BotCommands<CommandType extends BaseCommand> = Partial<Record<CommandType, string>>;
 
+export type TelegramBotAgent = {
+  destroy: () => void;
+};
+
 export type TelegramBotOptions<CommandType extends BaseCommand, CallbackData, UserData> = {
   token: string;
+  agent?: TelegramBotAgent;
   baseURL?: string;
   allowedUpdates?: UpdateType[];
   commands?: BotCommands<CommandType>;
@@ -155,6 +160,7 @@ export class TelegramBot<
     this.baseURL = options.baseURL ?? 'https://api.telegram.org';
     this.api = new TelegramBotApi({
       botToken: options.token,
+      agent: options.agent,
       allowedUpdates: options.allowedUpdates,
     });
     this.commands = options.commands;

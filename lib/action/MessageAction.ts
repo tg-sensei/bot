@@ -12,8 +12,8 @@ import {
   ParseMode,
   ReplyKeyboardMarkup,
   ReplyKeyboardRemove,
-} from 'typescript-telegram-bot-api/dist/types';
-import { ReplyParameters } from 'typescript-telegram-bot-api/dist/types/ReplyParameters';
+  ReplyParameters,
+} from 'typescript-telegram-bot-api';
 
 import { Markdown } from '../Markdown';
 import { ReplyKeyboard } from '../ReplyKeyboard';
@@ -194,7 +194,7 @@ export type MessageActionPollContent = {
   options: InputPollOption[];
   isAnonymous?: boolean;
   allowsMultipleAnswers?: boolean;
-  correctOptionId?: number;
+  correctOptionIds?: number[];
   explanation?: string | Markdown;
   explanationParseMode?: ParseMode;
   openPeriod?: number;
@@ -716,7 +716,7 @@ export class MessageAction<CommandType extends BaseCommand = never, CallbackData
           is_anonymous: content.isAnonymous,
           type: content.pollType,
           allows_multiple_answers: content.allowsMultipleAnswers,
-          correct_option_id: content.correctOptionId,
+          correct_option_ids: content.correctOptionIds,
           explanation: content.explanation?.toString(),
           explanation_parse_mode: content.explanation instanceof Markdown ? 'MarkdownV2' : content.explanationParseMode,
           open_period: typeof content.openPeriod === 'number' ? content.openPeriod / 1000 : undefined,

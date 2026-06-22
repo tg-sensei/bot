@@ -1,4 +1,4 @@
-import { CallbackQuery, Message } from 'typescript-telegram-bot-api/dist/types';
+import { CallbackQuery, Message } from 'typescript-telegram-bot-api';
 
 import { BaseCommand, TelegramBot } from '../TelegramBot';
 import { MaybePromise, RequiredKeys } from '../types';

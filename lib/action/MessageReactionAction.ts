@@ -1,7 +1,7 @@
-import { ReactionType } from 'typescript-telegram-bot-api/dist/types';
+import { ReactionType } from 'typescript-telegram-bot-api';
 
 import { BaseCommand } from '../TelegramBot';
-import { isArray } from '../utils/is';
+import { isArray } from '../utils';
 import { Action, ActionOnMessageContext } from './Action';
 
 export type MessageReactionActionOptions = {

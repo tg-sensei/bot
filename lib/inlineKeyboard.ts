@@ -1,4 +1,4 @@
-import { LoginUrl, WebAppInfo } from 'typescript-telegram-bot-api/dist/types';
+import { LoginUrl, WebAppInfo } from 'typescript-telegram-bot-api';
 
 export type InlineKeyboard<CallbackData> = (
   | (InlineKeyboardButton<CallbackData> | null | undefined | false | '')[]

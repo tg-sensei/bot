@@ -85,9 +85,6 @@ const replyKeyboard = new ReplyKeyboard({
         requestId: 2,
         isChannel: false,
         requestTitle: true,
-        userAdministratorRights: {
-          can_manage_chat: true,
-        },
       },
     ],
     [

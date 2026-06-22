@@ -1,4 +1,4 @@
-import { ChatAdministratorRights, ReplyKeyboardMarkup } from 'typescript-telegram-bot-api/dist/types';
+import { ChatAdministratorRights, ReplyKeyboardMarkup } from 'typescript-telegram-bot-api';
 
 import { isTruthy } from './utils';
 
@@ -28,8 +28,8 @@ export type RequestChatReplyKeyboardButton = BaseReplyKeyboardButton & {
   isForum?: boolean;
   hasUsername?: boolean;
   isCreated?: boolean;
-  userAdministratorRights?: Partial<ChatAdministratorRights>;
-  botAdministratorRights?: Partial<ChatAdministratorRights>;
+  userAdministratorRights?: ChatAdministratorRights;
+  botAdministratorRights?: ChatAdministratorRights;
   botIsMember?: boolean;
   requestTitle?: boolean;
   requestUsername?: boolean;

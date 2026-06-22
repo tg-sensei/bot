@@ -1,4 +1,4 @@
-import { InlineKeyboardMarkup } from 'typescript-telegram-bot-api/dist/types';
+import { InlineKeyboardMarkup } from 'typescript-telegram-bot-api';
 
 import { BaseCommand } from '../TelegramBot';
 import { TelegramBotError, TelegramBotErrorCode } from '../TelegramBotError';
