@@ -171,7 +171,7 @@ export type MessagePollContent = {
   options: InputPollOption[];
   isAnonymous?: boolean;
   allowsMultipleAnswers?: boolean;
-  correctOptionId?: number;
+  correctOptionIds?: number[];
   explanation?: string | Markdown;
   explanationParseMode?: ParseMode;
   openPeriod?: number;

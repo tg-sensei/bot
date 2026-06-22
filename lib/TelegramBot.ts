@@ -555,7 +555,7 @@ export class TelegramBot extends EventEmitter<TelegramBotEvents> {
           is_anonymous: content.isAnonymous,
           type: content.pollType,
           allows_multiple_answers: content.allowsMultipleAnswers,
-          correct_option_id: content.correctOptionId,
+          correct_option_ids: content.correctOptionIds,
           explanation: content.explanation?.toString(),
           explanation_parse_mode: content.explanation instanceof Markdown ? 'MarkdownV2' : content.explanationParseMode,
           open_period: typeof content.openPeriod === 'number' ? content.openPeriod / 1000 : undefined,

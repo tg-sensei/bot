@@ -21,6 +21,7 @@ export const UpdateTypePropertyMap = {
   business_message: 'businessMessage',
   edited_business_message: 'editedBusinessMessage',
   deleted_business_messages: 'deletedBusinessMessages',
+  guest_message: 'guestMessage',
   message_reaction: 'messageReaction',
   message_reaction_count: 'messageReactionCount',
   inline_query: 'inlineQuery',
@@ -36,6 +37,7 @@ export const UpdateTypePropertyMap = {
   chat_join_request: 'chatJoinRequest',
   chat_boost: 'chatBoost',
   removed_chat_boost: 'removedChatBoost',
+  managed_bot: 'managedBot',
 } as const;
 
 export type AnyUpdate = {
