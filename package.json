@@ -41,7 +41,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tg-sensei/bot.git"
+    "url": "git+https://github.com/tg-sensei/bot.git"
   },
   "bugs": {
     "url": "https://github.com/tg-sensei/bot/issues"
